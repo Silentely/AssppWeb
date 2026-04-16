@@ -5,7 +5,6 @@ const router = Router();
 const LEGACY_ITUNES_BASE_URL = "https://itunes.apple.com";
 const SERPAPI_SEARCH_URL = "https://serpapi.com/search.json";
 const DEFAULT_LIMIT = 25;
-const LOOKUP_LIMIT = 20;
 
 // Map iTunes API fields to our Software type, matching Swift CodingKeys
 function mapLegacySoftware(item: Record<string, any>) {
@@ -116,6 +115,7 @@ function normalizeCountry(value: unknown): string {
 
 function mapSerpSoftware(item: Record<string, any>) {
   const appId =
+    parseAppId(item.product_id) ??
     parseAppId(item.app_id) ??
     parseAppId(item.id) ??
     parseAppId(item.trackId) ??
@@ -226,6 +226,49 @@ async function searchViaSerpApi(
   return organicResults.map(mapSerpSoftware);
 }
 
+async function lookupManyViaLegacyApi(
+  appIds: number[],
+  country: string,
+): Promise<ReturnType<typeof mapLegacySoftware>[]> {
+  if (!appIds.length) {
+    return [];
+  }
+
+  const uniqueIds = Array.from(
+    new Set(appIds.filter((id) => Number.isInteger(id) && id > 0)),
+  );
+  if (!uniqueIds.length) {
+    return [];
+  }
+
+  const params = new URLSearchParams({ country });
+  params.set("id", uniqueIds.join(","));
+  params.set("entity", "software");
+
+  const data = await fetchJson(
+    `${LEGACY_ITUNES_BASE_URL}/lookup?${params.toString()}`,
+  );
+  const results = Array.isArray(data.results) ? data.results : [];
+  return results.map(mapLegacySoftware);
+}
+
+async function hydrateSerpResultsWithLegacyLookup(
+  serpResults: ReturnType<typeof mapLegacySoftware>[],
+  country: string,
+): Promise<ReturnType<typeof mapLegacySoftware>[]> {
+  if (!serpResults.length) {
+    return [];
+  }
+
+  const appIds = serpResults.map((item) => item.id);
+  const legacyResults = await lookupManyViaLegacyApi(appIds, country);
+  const legacyById = new Map(legacyResults.map((item) => [item.id, item]));
+
+  return serpResults
+    .map((item) => legacyById.get(item.id) ?? item)
+    .filter((item) => Number.isInteger(item.id) && item.id > 0);
+}
+
 async function searchViaLegacyApi(
   params: URLSearchParams,
 ): Promise<ReturnType<typeof mapLegacySoftware>[]> {
@@ -234,32 +277,6 @@ async function searchViaLegacyApi(
   );
   const results = Array.isArray(data.results) ? data.results : [];
   return results.map(mapLegacySoftware);
-}
-
-async function lookupViaSerpApi(
-  identifier: string,
-  country: string,
-): Promise<ReturnType<typeof mapLegacySoftware> | null> {
-  const results = await searchViaSerpApi(
-    identifier,
-    country,
-    LOOKUP_LIMIT,
-    "mobile",
-  );
-  if (!results.length) {
-    return null;
-  }
-
-  const normalizedIdentifier = identifier.toLowerCase();
-  const appId = parseAppId(identifier);
-
-  const exact = results.find(
-    (item) =>
-      item.bundleID.toLowerCase() === normalizedIdentifier ||
-      (appId !== null && item.id === appId),
-  );
-
-  return exact ?? results[0] ?? null;
 }
 
 async function lookupViaLegacyApi(
@@ -297,7 +314,11 @@ router.get("/search", async (req: Request, res: Response) => {
 
     if (config.serpApiKey) {
       try {
-        const results = await searchViaSerpApi(term, country, limit, device);
+        const serpResults = await searchViaSerpApi(term, country, limit, device);
+        const results = await hydrateSerpResultsWithLegacyLookup(
+          serpResults,
+          country,
+        );
         res.json(results);
         return;
       } catch (err) {
@@ -336,20 +357,6 @@ router.get("/lookup", async (req: Request, res: Response) => {
     }
 
     const country = normalizeCountry(req.query.country);
-
-    if (config.serpApiKey) {
-      try {
-        const result = await lookupViaSerpApi(identifier, country);
-        res.json(result);
-        return;
-      } catch (err) {
-        console.error(
-          "SerpApi lookup fallback:",
-          err instanceof Error ? err.message : err,
-        );
-      }
-    }
-
     const result = await lookupViaLegacyApi(identifier, country);
     res.json(result);
   } catch (err) {

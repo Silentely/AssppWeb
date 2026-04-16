@@ -43,29 +43,58 @@ describe("Search Route", () => {
     vi.restoreAllMocks();
   });
 
-  it("GET /api/search should use SerpApi when SERPAPI_KEY is configured", async () => {
+  it("GET /api/search should use SerpApi and hydrate from legacy lookup", async () => {
     process.env.SERPAPI_KEY = "test-serp-key";
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      jsonResponse({
-        organic_results: [
-          {
-            app_id: 414478124,
-            bundle_id: "com.tencent.xin",
-            title: "WeChat",
-            version: "8.0.58",
-            price: 0,
-            developer: "Tencent Mobile International Limited",
-            rating: 4.5,
-            rating_count: 1200,
-            thumbnail: "https://example.com/wechat.png",
-            screenshots: ["https://example.com/screenshot-1.png"],
-            primary_genre: "Social Networking",
-            released: "2026-03-01T00:00:00.000Z",
-            minimum_os_version: "14.0",
-          },
-        ],
-      }),
-    );
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        jsonResponse({
+          organic_results: [
+            {
+              app_id: 414478124,
+              bundle_id: "com.tencent.xin",
+              title: "WeChat",
+              version: "8.0.58",
+              price: 0,
+              developer: "Tencent Mobile International Limited",
+              rating: 4.5,
+              rating_count: 1200,
+              // Keep this intentionally empty to verify iTunes lookup hydration.
+              thumbnail: "",
+              screenshots: [],
+              primary_genre: "Social Networking",
+              released: "2026-03-01T00:00:00.000Z",
+              minimum_os_version: "14.0",
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          resultCount: 1,
+          results: [
+            {
+              trackId: 414478124,
+              bundleId: "com.tencent.xin",
+              trackName: "WeChat",
+              version: "8.0.71",
+              price: 0,
+              artistName: "WeChat",
+              sellerName: "Tencent Technology (Shenzhen) Company Limited",
+              description: "Mock",
+              averageUserRating: 3.9,
+              userRatingCount: 79431,
+              artworkUrl512: "https://example.com/wechat-512.jpg",
+              screenshotUrls: ["https://example.com/screenshot-1.png"],
+              minimumOsVersion: "15.0",
+              currentVersionReleaseDate: "2026-04-15T11:05:40Z",
+              releaseNotes: "What's New",
+              formattedPrice: "Free",
+              primaryGenreName: "Social Networking",
+            },
+          ],
+        }),
+      );
 
     const app = await createApp();
     const res = await request(app).get(
@@ -78,31 +107,43 @@ describe("Search Route", () => {
       id: 414478124,
       bundleID: "com.tencent.xin",
       name: "WeChat",
-      version: "8.0.58",
+      version: "8.0.71",
+      artworkUrl: "https://example.com/wechat-512.jpg",
       primaryGenreName: "Social Networking",
     });
 
-    const requestUrl = String(fetchSpy.mock.calls[0]?.[0] ?? "");
-    expect(requestUrl).toContain("https://serpapi.com/search.json?");
-    expect(requestUrl).toContain("engine=apple_app_store");
-    expect(requestUrl).toContain("api_key=test-serp-key");
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    const firstRequestUrl = String(fetchSpy.mock.calls[0]?.[0] ?? "");
+    const secondRequestUrl = String(fetchSpy.mock.calls[1]?.[0] ?? "");
+    expect(firstRequestUrl).toContain("https://serpapi.com/search.json?");
+    expect(firstRequestUrl).toContain("engine=apple_app_store");
+    expect(firstRequestUrl).toContain("api_key=test-serp-key");
+    expect(secondRequestUrl).toContain("https://itunes.apple.com/lookup?");
+    expect(secondRequestUrl).toContain("id=414478124");
   });
 
-  it("GET /api/lookup should prefer exact bundle match from SerpApi results", async () => {
+  it("GET /api/lookup should always use legacy iTunes lookup", async () => {
     process.env.SERPAPI_KEY = "test-serp-key";
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       jsonResponse({
-        organic_results: [
+        resultCount: 1,
+        results: [
           {
-            app_id: 1,
-            bundle_id: "com.example.other",
-            title: "Other",
-          },
-          {
-            app_id: 414478124,
-            bundle_id: "com.tencent.xin",
-            title: "WeChat",
-            version: "8.0.58",
+            trackId: 414478124,
+            bundleId: "com.tencent.xin",
+            trackName: "WeChat",
+            version: "8.0.71",
+            price: 0,
+            artistName: "WeChat",
+            sellerName: "Tencent",
+            description: "Mock",
+            averageUserRating: 3.9,
+            userRatingCount: 79431,
+            artworkUrl512: "https://example.com/wechat-512.jpg",
+            screenshotUrls: [],
+            minimumOsVersion: "15.0",
+            currentVersionReleaseDate: "2026-04-15T11:05:40Z",
+            primaryGenreName: "Social Networking",
           },
         ],
       }),
@@ -119,6 +160,10 @@ describe("Search Route", () => {
       bundleID: "com.tencent.xin",
       name: "WeChat",
     });
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const requestUrl = String(fetchSpy.mock.calls[0]?.[0] ?? "");
+    expect(requestUrl).toContain("https://itunes.apple.com/lookup?");
+    expect(requestUrl).toContain("bundleId=com.tencent.xin");
   });
 
   it("GET /api/search should fallback to legacy iTunes API without SERPAPI_KEY", async () => {
