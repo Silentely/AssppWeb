@@ -15,6 +15,40 @@ export class PurchaseError extends Error {
   }
 }
 
+const LOG_PREFIX = "[Purchase]";
+
+function toOptionalString(value: unknown): string | undefined {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed ? trimmed : undefined;
+  }
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return String(value);
+  }
+  return undefined;
+}
+
+function toOptionalNumber(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return undefined;
+}
+
+function trimForLog(value: unknown, maxLength: number = 160): string {
+  const text = toOptionalString(value) ?? "";
+  if (text.length <= maxLength) {
+    return text;
+  }
+  return `${text.slice(0, maxLength)}...`;
+}
+
 export async function purchaseApp(
   account: Account,
   app: Software,
@@ -68,6 +102,16 @@ async function purchaseWithParams(
     "X-Token": account.passwordToken,
   };
 
+  console.info(`${LOG_PREFIX} request start`, {
+    host,
+    path,
+    appId: app.id,
+    bundleID: app.bundleID,
+    store: account.store,
+    pod: account.pod ?? "",
+    pricingParameters,
+  });
+
   const response = await appleRequest({
     method: "POST",
     host,
@@ -77,16 +121,43 @@ async function purchaseWithParams(
     cookies: account.cookies,
   });
 
+  console.info(`${LOG_PREFIX} response received`, {
+    status: response.status,
+    statusText: response.statusText,
+    bodyLength: response.body.length,
+    hasSetCookie: response.rawHeaders.some(
+      ([key]) => key.toLowerCase() === "set-cookie",
+    ),
+  });
+
   const updatedCookies = extractAndMergeCookies(
     response.rawHeaders,
     account.cookies,
   );
 
   const dict = parsePlist(response.body) as Record<string, any>;
+  const failureType = toOptionalString(dict.failureType);
+  const customerMessage = toOptionalString(dict.customerMessage);
+  const jingleDocType = toOptionalString(dict.jingleDocType);
+  const status = toOptionalNumber(dict.status);
 
-  if (dict.failureType) {
-    const failureType = String(dict.failureType);
-    const customerMessage = dict.customerMessage as string | undefined;
+  console.info(`${LOG_PREFIX} parsed response`, {
+    appId: app.id,
+    bundleID: app.bundleID,
+    failureType: failureType ?? "",
+    customerMessage: trimForLog(customerMessage),
+    jingleDocType: jingleDocType ?? "",
+    status: status ?? "",
+  });
+
+  if (failureType) {
+    console.warn(`${LOG_PREFIX} response has failureType`, {
+      appId: app.id,
+      bundleID: app.bundleID,
+      failureType,
+      customerMessage: trimForLog(customerMessage),
+      pricingParameters,
+    });
     switch (failureType) {
       case "2059":
         throw new PurchaseError(i18n.t("errors.purchase.unavailable"), "2059");
@@ -138,12 +209,39 @@ async function purchaseWithParams(
     }
   }
 
-  const jingleDocType = dict.jingleDocType as string | undefined;
-  const status = dict.status as number | undefined;
-
-  if (jingleDocType !== "purchaseSuccess" || status !== 0) {
-    throw new PurchaseError(i18n.t("errors.purchase.failedGeneral"));
+  if (status === 0) {
+    if (jingleDocType && jingleDocType !== "purchaseSuccess") {
+      console.warn(
+        `${LOG_PREFIX} success status with unexpected jingleDocType`,
+        {
+          appId: app.id,
+          bundleID: app.bundleID,
+          jingleDocType,
+          pricingParameters,
+        },
+      );
+    }
+    return { updatedCookies };
   }
 
-  return { updatedCookies };
+  const statusCode = toOptionalString(status);
+  const genericCode = statusCode ?? jingleDocType ?? "unknown";
+
+  console.error(`${LOG_PREFIX} purchase failed without failureType`, {
+    appId: app.id,
+    bundleID: app.bundleID,
+    status: status ?? "",
+    jingleDocType: jingleDocType ?? "",
+    customerMessage: trimForLog(customerMessage),
+    pricingParameters,
+  });
+
+  if (customerMessage) {
+    throw new PurchaseError(customerMessage, statusCode);
+  }
+
+  throw new PurchaseError(
+    i18n.t("errors.purchase.failed", { failureType: genericCode }),
+    statusCode,
+  );
 }

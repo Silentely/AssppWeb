@@ -83,7 +83,7 @@ docker compose up -d
 **Request-Scoped Logs**
 
 - All `/api/*` requests now carry a request ID and return it in the `X-Request-Id` response header.
-- Backend logs include scoped prefixes such as `ApiTrace`, `SearchRoute`, `DownloadsRoute`, `InstallRoute`, `PackagesRoute`, and `DownloadManager`.
+- Backend logs include scoped prefixes such as `ApiTrace`, `SearchRoute`, `BagRoute`, `DownloadsRoute`, `InstallRoute`, `PackagesRoute`, and `DownloadManager`.
 - Filter logs by request ID:
 
 ```bash

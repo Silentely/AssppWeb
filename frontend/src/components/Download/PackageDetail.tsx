@@ -20,6 +20,8 @@ import { getAccountContext } from "../../utils/toast";
 import { isNewerVersion } from "../../utils/version";
 import type { Software } from "../../types";
 
+const LOG_PREFIX = "[PackageDetail]";
+
 export default function PackageDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -74,10 +76,18 @@ export default function PackageDetail() {
     if (!installInfo) return;
 
     const urlToShare = installInfo.installUrl;
+    console.info(`${LOG_PREFIX} share start`, {
+      taskId: task.id,
+      appId: task.software.id,
+      bundleID: task.software.bundleID,
+    });
 
     try {
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(urlToShare);
+        console.info(`${LOG_PREFIX} share copied via clipboard API`, {
+          taskId: task.id,
+        });
       } else {
         const textArea = document.createElement("textarea");
         textArea.value = urlToShare;
@@ -89,9 +99,15 @@ export default function PackageDetail() {
         textArea.select();
         document.execCommand("copy");
         document.body.removeChild(textArea);
+        console.info(`${LOG_PREFIX} share copied via execCommand`, {
+          taskId: task.id,
+        });
       }
     } catch (err) {
-      console.warn("Clipboard fallback failed:", err);
+      console.warn(`${LOG_PREFIX} share copy failed`, {
+        taskId: task.id,
+        message: err instanceof Error ? err.message : String(err),
+      });
     }
 
     addToast(
@@ -103,10 +119,16 @@ export default function PackageDetail() {
     if (navigator.share) {
       try {
         await navigator.share({ text: urlToShare });
+        console.info(`${LOG_PREFIX} native share completed`, {
+          taskId: task.id,
+        });
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError")
           return;
-        console.warn("Native share failed or aborted by user:", error);
+        console.warn(`${LOG_PREFIX} native share failed`, {
+          taskId: task.id,
+          message: error instanceof Error ? error.message : String(error),
+        });
       }
     }
   }
@@ -114,6 +136,12 @@ export default function PackageDetail() {
   async function handleCheckUpdate() {
     if (!task || !account) return;
     setCheckingUpdate(true);
+    console.info(`${LOG_PREFIX} check update start`, {
+      taskId: task.id,
+      appId: task.software.id,
+      bundleID: task.software.bundleID,
+      store: account.store,
+    });
     try {
       const country = storeIdToCountry(account.store) ?? "US";
       const app = await lookupApp(task.software.bundleID, country);
@@ -124,10 +152,24 @@ export default function PackageDetail() {
         setAvailableVersions(result.versions);
         setSelectedVersion(result.versions[0] || "");
         setShowUpdateModal(true);
+        console.info(`${LOG_PREFIX} update available`, {
+          taskId: task.id,
+          fromVersion: task.software.version,
+          latestVersion: app.version,
+          versionCount: result.versions.length,
+        });
       } else {
         addToast(t("downloads.package.noUpdate"), "info");
+        console.info(`${LOG_PREFIX} no update available`, {
+          taskId: task.id,
+          currentVersion: task.software.version,
+        });
       }
-    } catch {
+    } catch (error) {
+      console.error(`${LOG_PREFIX} check update failed`, {
+        taskId: task.id,
+        message: error instanceof Error ? error.message : String(error),
+      });
       addToast(t("downloads.package.checkUpdateFailed"), "error");
     } finally {
       setCheckingUpdate(false);
@@ -137,6 +179,12 @@ export default function PackageDetail() {
   async function handleConfirmUpdate() {
     if (!task || !account || !latestApp) return;
     setShowUpdateModal(false);
+    console.info(`${LOG_PREFIX} confirm update start`, {
+      taskId: task.id,
+      appId: latestApp.id,
+      bundleID: latestApp.bundleID,
+      selectedVersion,
+    });
     try {
       const isLatest =
         availableVersions.length > 0 &&
@@ -147,9 +195,53 @@ export default function PackageDetail() {
         isLatest ? undefined : selectedVersion,
       );
       await deleteDownload(task.id);
+      console.info(`${LOG_PREFIX} confirm update completed`, {
+        taskId: task.id,
+        appId: latestApp.id,
+      });
       navigate("/downloads");
-    } catch {
+    } catch (error) {
+      console.error(`${LOG_PREFIX} confirm update failed`, {
+        taskId: task.id,
+        message: error instanceof Error ? error.message : String(error),
+      });
       addToast(t("downloads.package.updateFailed"), "error");
+    }
+  }
+
+  async function handleDownloadIpa() {
+    toastAction("toast.title.downloadIpaStarted");
+    console.info(`${LOG_PREFIX} ipa download start`, {
+      taskId: task.id,
+      appId: task.software.id,
+      bundleID: task.software.bundleID,
+    });
+    try {
+      const res = await fetch(
+        `/api/packages/${task.id}/file?accountHash=${encodeURIComponent(task.accountHash)}`,
+        { headers: authHeaders() },
+      );
+      if (!res.ok) throw new Error("Download failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${task.software.name}_${task.software.version}.ipa`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      console.info(`${LOG_PREFIX} ipa download completed`, {
+        taskId: task.id,
+        status: res.status,
+        sizeBytes: blob.size,
+      });
+    } catch (error) {
+      console.error(`${LOG_PREFIX} ipa download failed`, {
+        taskId: task.id,
+        message: error instanceof Error ? error.message : String(error),
+      });
+      addToast(t("downloads.package.downloadFailed"), "error");
     }
   }
 
@@ -246,7 +338,14 @@ export default function PackageDetail() {
                   <>
                     <a
                       href={installInfo.installUrl}
-                      onClick={() => toastAction("toast.title.installStarted")}
+                      onClick={() => {
+                        console.info(`${LOG_PREFIX} install url opened`, {
+                          taskId: task.id,
+                          appId: task.software.id,
+                          bundleID: task.software.bundleID,
+                        });
+                        toastAction("toast.title.installStarted");
+                      }}
                       className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors"
                     >
                       {t("downloads.package.install")}
@@ -276,27 +375,7 @@ export default function PackageDetail() {
                   </>
                 )}
                 <button
-                  onClick={async () => {
-                    toastAction("toast.title.downloadIpaStarted");
-                    try {
-                      const res = await fetch(
-                        `/api/packages/${task.id}/file?accountHash=${encodeURIComponent(task.accountHash)}`,
-                        { headers: authHeaders() },
-                      );
-                      if (!res.ok) throw new Error("Download failed");
-                      const blob = await res.blob();
-                      const url = URL.createObjectURL(blob);
-                      const a = document.createElement("a");
-                      a.href = url;
-                      a.download = `${task.software.name}_${task.software.version}.ipa`;
-                      document.body.appendChild(a);
-                      a.click();
-                      document.body.removeChild(a);
-                      URL.revokeObjectURL(url);
-                    } catch {
-                      addToast(t("downloads.package.downloadFailed"), "error");
-                    }
-                  }}
+                  onClick={handleDownloadIpa}
                   className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
                 >
                   {t("downloads.package.downloadIpa")}
