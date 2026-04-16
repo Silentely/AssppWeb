@@ -137,3 +137,6 @@ references/
 mnt/
 tunnel/
 deploy.sh
+.ace-tool/
+.omx/
+.omc/

@@ -7,6 +7,12 @@ export const config = {
   publicBaseUrl: process.env.PUBLIC_BASE_URL || "",
   disableHttpsRedirect:
     process.env.UNSAFE_DANGEROUSLY_DISABLE_HTTPS_REDIRECT === "true",
+  serpApiKey: process.env.SERPAPI_KEY || "",
+  serpApiTimeoutMs:
+    Math.max(
+      1000,
+      parseInt(process.env.SERPAPI_TIMEOUT_MS || "15000", 10) || 15000,
+    ),
   // Auto-cleanup: 0 disables
   autoCleanupDays: parseInt(process.env.AUTO_CLEANUP_DAYS || "0", 10) || 0,
   autoCleanupMaxMB: parseInt(process.env.AUTO_CLEANUP_MAX_MB || "0", 10) || 0,
