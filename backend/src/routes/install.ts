@@ -5,8 +5,15 @@ import { config } from "../config.js";
 import { getAllTasks } from "../services/downloadManager.js";
 import { buildManifest, getWhitePng } from "../services/manifestBuilder.js";
 import { getIdParam } from "../utils/route.js";
+import {
+  durationMs,
+  getRequestId,
+  logInfo,
+  logWarn,
+} from "../utils/requestLog.js";
 
 const router = Router();
+const LOG_SCOPE = "InstallRoute";
 
 export function getBaseUrl(req: Request): string {
   const configured = normalizeBaseUrl(config.publicBaseUrl);
@@ -53,12 +60,19 @@ function joinUrl(baseUrl: string, path: string): string {
 
 // Manifest plist for iTMS installation
 router.get("/install/:id/manifest.plist", (req: Request, res: Response) => {
+  const reqId = getRequestId(res);
+  const startedAt = Date.now();
   const id = getIdParam(req);
+  logInfo(LOG_SCOPE, reqId, "manifest request start", { taskId: id });
   const task = getAllTasks().find(
     (t) => t.id === id && t.status === "completed",
   );
 
   if (!task || !task.filePath) {
+    logWarn(LOG_SCOPE, reqId, "manifest request package not found", {
+      taskId: id,
+      durationMs: durationMs(startedAt),
+    });
     res.status(404).json({ error: "Package not found" });
     return;
   }
@@ -76,16 +90,29 @@ router.get("/install/:id/manifest.plist", (req: Request, res: Response) => {
   );
 
   res.setHeader("Content-Type", "application/xml");
+  logInfo(LOG_SCOPE, reqId, "manifest request completed", {
+    taskId: id,
+    bundleID: task.software.bundleID,
+    version: task.software.version,
+    durationMs: durationMs(startedAt),
+  });
   res.send(manifest);
 });
 
 router.get("/install/:id/url", (req: Request, res: Response) => {
+  const reqId = getRequestId(res);
+  const startedAt = Date.now();
   const id = getIdParam(req);
+  logInfo(LOG_SCOPE, reqId, "install url request start", { taskId: id });
   const task = getAllTasks().find(
     (t) => t.id === id && t.status === "completed",
   );
 
   if (!task || !task.filePath) {
+    logWarn(LOG_SCOPE, reqId, "install url request package not found", {
+      taskId: id,
+      durationMs: durationMs(startedAt),
+    });
     res.status(404).json({ error: "Package not found" });
     return;
   }
@@ -96,17 +123,29 @@ router.get("/install/:id/url", (req: Request, res: Response) => {
     manifestUrl,
   )}`;
 
+  logInfo(LOG_SCOPE, reqId, "install url request completed", {
+    taskId: id,
+    manifestUrl,
+    durationMs: durationMs(startedAt),
+  });
   res.json({ installUrl, manifestUrl });
 });
 
 // Stream IPA payload for installation
 router.get("/install/:id/payload.ipa", (req: Request, res: Response) => {
+  const reqId = getRequestId(res);
+  const startedAt = Date.now();
   const id = getIdParam(req);
+  logInfo(LOG_SCOPE, reqId, "payload stream request start", { taskId: id });
   const task = getAllTasks().find(
     (t) => t.id === id && t.status === "completed",
   );
 
   if (!task || !task.filePath || !fs.existsSync(task.filePath)) {
+    logWarn(LOG_SCOPE, reqId, "payload stream package not found", {
+      taskId: id,
+      durationMs: durationMs(startedAt),
+    });
     res.status(404).json({ error: "Package not found" });
     return;
   }
@@ -115,6 +154,10 @@ router.get("/install/:id/payload.ipa", (req: Request, res: Response) => {
   const packagesBase = path.resolve(path.join(config.dataDir, "packages"));
   const resolvedPath = path.resolve(task.filePath);
   if (!resolvedPath.startsWith(packagesBase + path.sep)) {
+    logWarn(LOG_SCOPE, reqId, "payload stream path validation failed", {
+      taskId: id,
+      durationMs: durationMs(startedAt),
+    });
     res.status(403).json({ error: "Access denied" });
     return;
   }
@@ -122,8 +165,18 @@ router.get("/install/:id/payload.ipa", (req: Request, res: Response) => {
   res.setHeader("Content-Type", "application/octet-stream");
   const stats = fs.statSync(resolvedPath);
   res.setHeader("Content-Length", stats.size);
+  logInfo(LOG_SCOPE, reqId, "payload stream started", {
+    taskId: id,
+    fileSizeBytes: stats.size,
+    durationMs: durationMs(startedAt),
+  });
 
   const stream = fs.createReadStream(resolvedPath);
+  stream.on("close", () => {
+    logInfo(LOG_SCOPE, reqId, "payload stream completed", {
+      taskId: id,
+    });
+  });
   stream.pipe(res);
 });
 

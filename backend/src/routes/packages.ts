@@ -5,9 +5,17 @@ import { config } from "../config.js";
 import { MIN_ACCOUNT_HASH_LENGTH } from "../config.js";
 import { getAllTasks } from "../services/downloadManager.js";
 import { getIdParam } from "../utils/route.js";
+import {
+  durationMs,
+  getRequestId,
+  logInfo,
+  logWarn,
+  maskAccountHash,
+} from "../utils/requestLog.js";
 import type { PackageInfo } from "../types/index.js";
 
 const router = Router();
+const LOG_SCOPE = "PackagesRoute";
 
 // Sanitize filename for Content-Disposition to prevent header injection
 function sanitizeFilename(name: string): string {
@@ -21,13 +29,21 @@ function sanitizeFilename(name: string): string {
 
 // List packages filtered by account hashes
 router.get("/packages", (req: Request, res: Response) => {
+  const reqId = getRequestId(res);
+  const startedAt = Date.now();
   const hashesParam = req.query.accountHashes;
   if (!hashesParam || typeof hashesParam !== "string") {
+    logWarn(LOG_SCOPE, reqId, "list packages without valid accountHashes", {
+      durationMs: durationMs(startedAt),
+    });
     res.json([]);
     return;
   }
   const hashes = new Set(hashesParam.split(",").filter(Boolean));
   if (hashes.size === 0) {
+    logWarn(LOG_SCOPE, reqId, "list packages empty accountHashes set", {
+      durationMs: durationMs(startedAt),
+    });
     res.json([]);
     return;
   }
@@ -50,13 +66,24 @@ router.get("/packages", (req: Request, res: Response) => {
     });
   }
 
+  logInfo(LOG_SCOPE, reqId, "list packages completed", {
+    hashCount: hashes.size,
+    resultCount: packages.length,
+    durationMs: durationMs(startedAt),
+  });
   res.json(packages);
 });
 
 // Stream IPA file (requires accountHash)
 router.get("/packages/:id/file", (req: Request, res: Response) => {
+  const reqId = getRequestId(res);
+  const startedAt = Date.now();
   const accountHash = req.query.accountHash as string;
   if (!accountHash || accountHash.length < MIN_ACCOUNT_HASH_LENGTH) {
+    logWarn(LOG_SCOPE, reqId, "download package file missing accountHash", {
+      packageId: getIdParam(req),
+      durationMs: durationMs(startedAt),
+    });
     res.status(400).json({ error: "Missing or invalid accountHash" });
     return;
   }
@@ -67,11 +94,21 @@ router.get("/packages/:id/file", (req: Request, res: Response) => {
   );
 
   if (!task || !task.filePath || !fs.existsSync(task.filePath)) {
+    logWarn(LOG_SCOPE, reqId, "download package file not found", {
+      packageId: id,
+      accountHash: maskAccountHash(accountHash),
+      durationMs: durationMs(startedAt),
+    });
     res.status(404).json({ error: "Package not found" });
     return;
   }
 
   if (task.accountHash !== accountHash) {
+    logWarn(LOG_SCOPE, reqId, "download package file ownership check failed", {
+      packageId: id,
+      accountHash: maskAccountHash(accountHash),
+      durationMs: durationMs(startedAt),
+    });
     res.status(403).json({ error: "Access denied" });
     return;
   }
@@ -80,6 +117,10 @@ router.get("/packages/:id/file", (req: Request, res: Response) => {
   const packagesBase = path.resolve(path.join(config.dataDir, "packages"));
   const resolvedPath = path.resolve(task.filePath);
   if (!resolvedPath.startsWith(packagesBase + path.sep)) {
+    logWarn(LOG_SCOPE, reqId, "download package file path validation failed", {
+      packageId: id,
+      durationMs: durationMs(startedAt),
+    });
     res.status(403).json({ error: "Access denied" });
     return;
   }
@@ -92,15 +133,32 @@ router.get("/packages/:id/file", (req: Request, res: Response) => {
 
   const stats = fs.statSync(resolvedPath);
   res.setHeader("Content-Length", stats.size);
+  logInfo(LOG_SCOPE, reqId, "download package file stream started", {
+    packageId: id,
+    accountHash: maskAccountHash(accountHash),
+    fileSizeBytes: stats.size,
+    durationMs: durationMs(startedAt),
+  });
 
   const stream = fs.createReadStream(resolvedPath);
+  stream.on("close", () => {
+    logInfo(LOG_SCOPE, reqId, "download package file stream completed", {
+      packageId: id,
+    });
+  });
   stream.pipe(res);
 });
 
 // Delete a package (requires accountHash)
 router.delete("/packages/:id", (req: Request, res: Response) => {
+  const reqId = getRequestId(res);
+  const startedAt = Date.now();
   const accountHash = req.query.accountHash as string;
   if (!accountHash || accountHash.length < MIN_ACCOUNT_HASH_LENGTH) {
+    logWarn(LOG_SCOPE, reqId, "delete package missing accountHash", {
+      packageId: getIdParam(req),
+      durationMs: durationMs(startedAt),
+    });
     res.status(400).json({ error: "Missing or invalid accountHash" });
     return;
   }
@@ -111,11 +169,21 @@ router.delete("/packages/:id", (req: Request, res: Response) => {
 
   const task = getAllTasks().find((t) => t.id === id);
   if (!task || !task.filePath) {
+    logWarn(LOG_SCOPE, reqId, "delete package not found", {
+      packageId: id,
+      accountHash: maskAccountHash(accountHash),
+      durationMs: durationMs(startedAt),
+    });
     res.status(404).json({ error: "Package not found" });
     return;
   }
 
   if (task.accountHash !== accountHash) {
+    logWarn(LOG_SCOPE, reqId, "delete package ownership check failed", {
+      packageId: id,
+      accountHash: maskAccountHash(accountHash),
+      durationMs: durationMs(startedAt),
+    });
     res.status(403).json({ error: "Access denied" });
     return;
   }
@@ -123,6 +191,10 @@ router.delete("/packages/:id", (req: Request, res: Response) => {
   // Verify file path is within packages directory
   const resolvedPath = path.resolve(task.filePath);
   if (!resolvedPath.startsWith(packagesBase + path.sep)) {
+    logWarn(LOG_SCOPE, reqId, "delete package path validation failed", {
+      packageId: id,
+      durationMs: durationMs(startedAt),
+    });
     res.status(403).json({ error: "Access denied" });
     return;
   }
@@ -143,6 +215,11 @@ router.delete("/packages/:id", (req: Request, res: Response) => {
     }
   }
 
+  logInfo(LOG_SCOPE, reqId, "delete package completed", {
+    packageId: id,
+    accountHash: maskAccountHash(accountHash),
+    durationMs: durationMs(startedAt),
+  });
   res.json({ success: true });
 });
 

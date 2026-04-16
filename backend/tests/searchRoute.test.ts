@@ -205,6 +205,62 @@ describe("Search Route", () => {
     expect(requestUrl).toContain("https://itunes.apple.com/search?");
   });
 
+  it("GET /api/search should fallback to legacy search when serp results have invalid ids", async () => {
+    process.env.SERPAPI_KEY = "test-serp-key";
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        jsonResponse({
+          organic_results: [
+            {
+              title: "Broken item without id",
+              bundle_id: "com.example.invalid",
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          resultCount: 1,
+          results: [
+            {
+              trackId: 414478124,
+              bundleId: "com.tencent.xin",
+              trackName: "WeChat",
+              version: "8.0.71",
+              price: 0,
+              artistName: "WeChat",
+              sellerName: "Tencent",
+              description: "From fallback",
+              averageUserRating: 3.9,
+              userRatingCount: 79431,
+              artworkUrl512: "https://example.com/wechat-512.jpg",
+              screenshotUrls: [],
+              minimumOsVersion: "15.0",
+              currentVersionReleaseDate: "2026-04-15T11:05:40Z",
+              primaryGenreName: "Social Networking",
+            },
+          ],
+        }),
+      );
+
+    const app = await createApp();
+    const res = await request(app).get(
+      "/api/search?term=wechat&country=us&limit=1",
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(1);
+    expect(res.body[0]).toMatchObject({
+      id: 414478124,
+      bundleID: "com.tencent.xin",
+      name: "WeChat",
+    });
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    const secondRequestUrl = String(fetchSpy.mock.calls[1]?.[0] ?? "");
+    expect(secondRequestUrl).toContain("https://itunes.apple.com/search?");
+  });
+
   it("GET /api/search should return 500 when both SerpApi and fallback upstream fail", async () => {
     process.env.SERPAPI_KEY = "test-serp-key";
     const fetchSpy = vi

@@ -13,6 +13,7 @@ export const config = {
       1000,
       parseInt(process.env.SERPAPI_TIMEOUT_MS || "15000", 10) || 15000,
     ),
+  searchDebug: process.env.SEARCH_DEBUG === "true",
   // Auto-cleanup: 0 disables
   autoCleanupDays: parseInt(process.env.AUTO_CLEANUP_DAYS || "0", 10) || 0,
   autoCleanupMaxMB: parseInt(process.env.AUTO_CLEANUP_MAX_MB || "0", 10) || 0,

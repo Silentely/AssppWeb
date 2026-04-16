@@ -5,11 +5,13 @@ import { config, DOWNLOAD_TIMEOUT_MS } from "../config.js";
 import { inject } from "./sinfInjector.js";
 import { ChunkedDownloader } from "./chunkedDownloader.js";
 import type { DownloadTask, Software, Sinf } from "../types/index.js";
+import { logError, logInfo, logWarn, safeErrorMessage } from "../utils/requestLog.js";
 
 const tasks = new Map<string, DownloadTask>();
 const abortControllers = new Map<string, AbortController>();
 const chunkDownloaders = new Map<string, ChunkedDownloader>();
 const progressListeners = new Map<string, Set<(task: DownloadTask) => void>>();
+const LOG_SCOPE = "DownloadManager";
 
 const PACKAGES_DIR = path.join(config.dataDir, "packages");
 const TASKS_FILE = path.join(config.dataDir, "tasks.json");
@@ -313,6 +315,11 @@ export function deleteTask(id: string): boolean {
   const task = tasks.get(id);
   if (!task) return false;
 
+  logInfo(LOG_SCOPE, `task:${id}`, "delete task start", {
+    status: task.status,
+    hasFilePath: Boolean(task.filePath),
+  });
+
   // Abort if downloading
   const controller = abortControllers.get(id);
   if (controller) {
@@ -352,12 +359,15 @@ export function deleteTask(id: string): boolean {
   tasks.delete(id);
   progressListeners.delete(id);
   persistTasks();
+  logInfo(LOG_SCOPE, `task:${id}`, "delete task completed");
   return true;
 }
 
 export function pauseTask(id: string): boolean {
   const task = tasks.get(id);
   if (!task || task.status !== "downloading") return false;
+
+  logInfo(LOG_SCOPE, `task:${id}`, "pause task requested");
 
   const controller = abortControllers.get(id);
   if (controller) {
@@ -372,6 +382,7 @@ export function pauseTask(id: string): boolean {
 
   task.status = "paused";
   notifyProgress(task);
+  logInfo(LOG_SCOPE, `task:${id}`, "pause task completed");
   return true;
 }
 
@@ -379,6 +390,7 @@ export function resumeTask(id: string): boolean {
   const task = tasks.get(id);
   if (!task || task.status !== "paused") return false;
 
+  logInfo(LOG_SCOPE, `task:${id}`, "resume task requested");
   startDownload(task);
   return true;
 }
@@ -412,11 +424,23 @@ export function createTask(
   };
 
   tasks.set(task.id, task);
+  logInfo(LOG_SCOPE, `task:${task.id}`, "task created", {
+    bundleID: task.software.bundleID,
+    version: task.software.version,
+    status: task.status,
+  });
   startDownload(task);
   return task;
 }
 
 async function startDownload(task: DownloadTask) {
+  const traceId = `task:${task.id}`;
+  const startedAt = Date.now();
+  logInfo(LOG_SCOPE, traceId, "download start", {
+    bundleID: task.software.bundleID,
+    version: task.software.version,
+  });
+
   // Pre-download cleanup: expire old files + enforce space limit
   runTimeCleanup();
   runSpaceCleanup();
@@ -453,6 +477,7 @@ async function startDownload(task: DownloadTask) {
     task.error = "Invalid path";
     clearTimeout(timeout);
     notifyProgress(task);
+    logWarn(LOG_SCOPE, traceId, "download failed due to invalid path");
     return;
   }
 
@@ -477,6 +502,7 @@ async function startDownload(task: DownloadTask) {
     chunkDownloaders.set(task.id, downloader);
 
     await downloader.download(controller.signal);
+    logInfo(LOG_SCOPE, traceId, "download transfer completed");
 
     chunkDownloaders.delete(task.id);
     abortControllers.delete(task.id);
@@ -487,8 +513,12 @@ async function startDownload(task: DownloadTask) {
       task.status = "injecting";
       task.progress = 100;
       notifyProgress(task);
+      logInfo(LOG_SCOPE, traceId, "sinf injection start", {
+        sinfCount: task.sinfs.length,
+      });
 
       await inject(task.sinfs, filePath, task.iTunesMetadata);
+      logInfo(LOG_SCOPE, traceId, "sinf injection completed");
     }
 
     task.status = "completed";
@@ -502,6 +532,10 @@ async function startDownload(task: DownloadTask) {
     // Persist completed task metadata (no secrets)
     persistTasks();
     notifyProgress(task);
+    logInfo(LOG_SCOPE, traceId, "download task completed", {
+      durationMs: Date.now() - startedAt,
+      filePath,
+    });
   } catch (err) {
     chunkDownloaders.delete(task.id);
     abortControllers.delete(task.id);
@@ -509,18 +543,24 @@ async function startDownload(task: DownloadTask) {
 
     if (err instanceof Error && err.name === "AbortError") {
       // Status may have been changed to "paused" externally by pauseTask()
-      if ((task.status as string) === "paused") return;
+      if ((task.status as string) === "paused") {
+        logInfo(LOG_SCOPE, traceId, "download aborted due to pause request");
+        return;
+      }
       task.status = "failed";
       task.error = "Download timed out";
       notifyProgress(task);
+      logWarn(LOG_SCOPE, traceId, "download aborted by timeout", {
+        durationMs: Date.now() - startedAt,
+      });
       return;
     }
 
     task.status = "failed";
-    console.error(
-      `Download ${task.id} failed:`,
-      err instanceof Error ? err.message : err,
-    );
+    logError(LOG_SCOPE, traceId, "download failed", {
+      message: safeErrorMessage(err),
+      durationMs: Date.now() - startedAt,
+    });
     task.error = "Download failed";
     notifyProgress(task);
   }

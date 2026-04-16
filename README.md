@@ -77,7 +77,18 @@ docker compose up -d
 | `DOWNLOAD_THREADS`                          | `8`             | Number of parallel threads for IPA downloads (1–32)                                         |
 | `SERPAPI_KEY`                               | _(none)_        | SerpApi API key for App Store search/lookup (`engine=apple_app_store`)                      |
 | `SERPAPI_TIMEOUT_MS`                        | `15000`         | Timeout (ms) for SerpApi and legacy search upstream requests                                 |
+| `SEARCH_DEBUG`                              | `false`         | Enable verbose backend search route logs for troubleshooting (`[SearchRoute][<requestId>] [debug]`) |
 | `ACCESS_PASSWORD`                           | _(none)_        | Require a password to access the web UI and API (empty to disable)                          |
+
+**Request-Scoped Logs**
+
+- All `/api/*` requests now carry a request ID and return it in the `X-Request-Id` response header.
+- Backend logs include scoped prefixes such as `ApiTrace`, `SearchRoute`, `DownloadsRoute`, `InstallRoute`, `PackagesRoute`, and `DownloadManager`.
+- Filter logs by request ID:
+
+```bash
+./scripts/logs-by-request-id.sh <requestId> [service]
+```
 
 **Reverse Proxy (Required for Install Apps on iOS)**
 
