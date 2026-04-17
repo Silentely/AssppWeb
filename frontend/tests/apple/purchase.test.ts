@@ -122,4 +122,62 @@ describe("apple/purchase", () => {
       "<key>pricingParameters</key><string>GAME</string>",
     );
   });
+
+  it("retries with GAME pricing when first attempt returns buyProductFailure", async () => {
+    vi.mocked(appleRequest)
+      .mockResolvedValueOnce({
+        status: 200,
+        statusText: "OK",
+        headers: {},
+        rawHeaders: [],
+        body: buildPlist({
+          jingleDocType: "buyProductFailure",
+        }),
+      })
+      .mockResolvedValueOnce({
+        status: 200,
+        statusText: "OK",
+        headers: {},
+        rawHeaders: [],
+        body: buildPlist({
+          status: 0,
+          jingleDocType: "purchaseSuccess",
+        }),
+      });
+
+    await expect(purchaseApp(createAccount(), createSoftware())).resolves.toEqual({
+      updatedCookies: [],
+    });
+
+    expect(vi.mocked(appleRequest)).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(appleRequest).mock.calls[0][0].body).toContain(
+      "<key>pricingParameters</key><string>STDQ</string>",
+    );
+    expect(vi.mocked(appleRequest).mock.calls[1][0].body).toContain(
+      "<key>pricingParameters</key><string>GAME</string>",
+    );
+  });
+
+  it("extracts message from dialog.explanation when customerMessage is missing", async () => {
+    vi.mocked(appleRequest).mockResolvedValue({
+      status: 200,
+      statusText: "OK",
+      headers: {},
+      rawHeaders: [],
+      body: buildPlist({
+        jingleDocType: "buyProductFailure",
+        dialog: {
+          explanation: "This app is currently unavailable in your region.",
+        },
+      }),
+    });
+
+    await expect(
+      purchaseApp(createAccount(), createSoftware()),
+    ).rejects.toMatchObject({
+      name: "PurchaseError",
+      message: "This app is currently unavailable in your region.",
+      code: "buyProductFailure",
+    });
+  });
 });

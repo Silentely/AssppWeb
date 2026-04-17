@@ -90,6 +90,8 @@ docker compose up -d
 ./scripts/logs-by-request-id.sh <requestId> [service]
 ```
 
+- When running inside the app container (no `docker` CLI), the script auto-falls back to streaming `/proc/1/fd/1` and filters new lines only.
+
 **Reverse Proxy (Required for Install Apps on iOS)**
 
 iOS requires HTTPS for `itms-services://` install links. You must put AssppWeb behind a reverse proxy with a valid TLS certificate.

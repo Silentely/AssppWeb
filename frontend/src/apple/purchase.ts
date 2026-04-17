@@ -17,6 +17,8 @@ export class PurchaseError extends Error {
 
 const LOG_PREFIX = "[Purchase]";
 
+type UnknownDict = Record<string, unknown>;
+
 function toOptionalString(value: unknown): string | undefined {
   if (typeof value === "string") {
     const trimmed = value.trim();
@@ -49,6 +51,23 @@ function trimForLog(value: unknown, maxLength: number = 160): string {
   return `${text.slice(0, maxLength)}...`;
 }
 
+function asDict(value: unknown): UnknownDict | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+  return value as UnknownDict;
+}
+
+function firstString(...values: unknown[]): string | undefined {
+  for (const value of values) {
+    const parsed = toOptionalString(value);
+    if (parsed) {
+      return parsed;
+    }
+  }
+  return undefined;
+}
+
 export async function purchaseApp(
   account: Account,
   app: Software,
@@ -61,7 +80,10 @@ export async function purchaseApp(
     return await purchaseWithParams(account, app, "STDQ");
   } catch (e) {
     // Rely on error code instead of translated message string to prevent matching issues
-    if (e instanceof PurchaseError && e.code === "2059") {
+    if (
+      e instanceof PurchaseError &&
+      (e.code === "2059" || e.code === "buyProductFailure")
+    ) {
       return await purchaseWithParams(account, app, "GAME");
     }
     throw e;
@@ -135,11 +157,22 @@ async function purchaseWithParams(
     account.cookies,
   );
 
-  const dict = parsePlist(response.body) as Record<string, any>;
-  const failureType = toOptionalString(dict.failureType);
-  const customerMessage = toOptionalString(dict.customerMessage);
-  const jingleDocType = toOptionalString(dict.jingleDocType);
+  const dict = parsePlist(response.body) as UnknownDict;
+  const dialog = asDict(dict.dialog);
+  const action = asDict(dict.action);
+  const failureType = firstString(dict.failureType, dialog?.failureType);
+  const customerMessage = firstString(
+    dict.customerMessage,
+    dict.failureMessage,
+    dict.userPresentableErrorMessage,
+    dialog?.explanation,
+    dialog?.message,
+    action?.message,
+  );
+  const jingleDocType = firstString(dict.jingleDocType);
   const status = toOptionalNumber(dict.status);
+  const rootKeys = Object.keys(dict).slice(0, 20);
+  const dialogKeys = dialog ? Object.keys(dialog).slice(0, 20) : [];
 
   console.info(`${LOG_PREFIX} parsed response`, {
     appId: app.id,
@@ -148,6 +181,8 @@ async function purchaseWithParams(
     customerMessage: trimForLog(customerMessage),
     jingleDocType: jingleDocType ?? "",
     status: status ?? "",
+    rootKeys,
+    dialogKeys,
   });
 
   if (failureType) {
@@ -181,9 +216,8 @@ async function purchaseWithParams(
           );
         }
         // Check for terms page action
-        const action = dict.action as Record<string, any> | undefined;
         if (action) {
-          const actionUrl = (action.url || action.URL) as string | undefined;
+          const actionUrl = firstString(action.url, action.URL);
           if (actionUrl && actionUrl.endsWith("termsPage")) {
             throw new PurchaseError(
               i18n.t("errors.purchase.termsRequired", { url: actionUrl }),
@@ -237,11 +271,18 @@ async function purchaseWithParams(
   });
 
   if (customerMessage) {
-    throw new PurchaseError(customerMessage, statusCode);
+    throw new PurchaseError(customerMessage, genericCode);
+  }
+
+  if (jingleDocType === "buyProductFailure") {
+    throw new PurchaseError(
+      i18n.t("errors.purchase.unavailable"),
+      "buyProductFailure",
+    );
   }
 
   throw new PurchaseError(
     i18n.t("errors.purchase.failed", { failureType: genericCode }),
-    statusCode,
+    genericCode,
   );
 }
