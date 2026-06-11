@@ -145,6 +145,7 @@ export default function VersionHistory() {
         <p className="text-gray-500">{t("search.versions.unavailable")}</p>
       </PageContainer>
     );
+  }
 
   return (
     <PageContainer title={t("search.versions.title")}>
