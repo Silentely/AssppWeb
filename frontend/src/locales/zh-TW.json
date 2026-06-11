@@ -425,11 +425,14 @@
       "unknownError": "發生未知錯誤"
     },
     "auth": {
-      "requiresVerification": "驗證需要雙重認證代碼。如果沒有彈出驗證碼，請嘗試在 https://account.apple.com 登入以觸發提示，然後在雙重認證代碼欄位中填寫該代碼。",
+      "requiresVerification": "Apple 暫時無法完成登入，可能需要雙重認證代碼，也可能是 Apple ID 或密碼不正確。如果確認密碼正確但沒有彈出驗證碼，請嘗試在 https://account.apple.com 登入以觸發提示，然後在雙重認證代碼欄位中填寫該代碼。",
+      "rateLimited": "Apple 登入介面暫时限流。請停止重複嘗試，等待一段時間後再登入。",
+      "invalidCredentials": "Apple ID 或密碼不正確",
       "redirectLocation": "無法取得重新導向位址",
       "emptyBody": "認證失敗：伺服器傳回 HTTP {{status}} 且回應主體為空",
       "missingAccountInfo": "回應中缺少 accountInfo",
       "missingAddress": "回應中缺少 address",
+      "missingSessionToken": "登入回應中缺少 App Store 工作階段代號",
       "unknownReason": "未知原因導致認證失敗"
     }
   },

@@ -1,12 +1,12 @@
 import { authHeaders } from "../api/client";
 import { parsePlist } from "./plist";
+import { defaultAuthURL, normalizeAuthURL } from "./authEndpoint";
+
+export { defaultAuthURL };
 
 export interface BagOutput {
   authURL: string;
 }
-
-export const defaultAuthURL =
-  "https://buy.itunes.apple.com/WebObjects/MZFinance.woa/wa/authenticate";
 
 // Fetches the bag via the backend proxy.
 // The backend fetches it using Node.js native HTTPS.
@@ -27,14 +27,12 @@ export async function fetchBag(deviceId: string): Promise<BagOutput> {
     const xml = await resp.text();
     const dict = parsePlist(xml) as Record<string, any>;
 
-    // authenticateAccount may be at top level or inside a urlBag dict
-    let authURL: string | undefined;
-    const urlBag = dict.urlBag as Record<string, any> | undefined;
-    if (urlBag) {
-      authURL = urlBag.authenticateAccount as string | undefined;
-    }
+    // authenticateAccount may be at top level or inside a urlBag dict.
+    // Prefer the top-level value, falling back to the urlBag entry.
+    let authURL = dict.authenticateAccount as string | undefined;
     if (!authURL) {
-      authURL = dict.authenticateAccount as string | undefined;
+      const urlBag = dict.urlBag as Record<string, any> | undefined;
+      authURL = urlBag?.authenticateAccount as string | undefined;
     }
 
     if (!authURL) {
@@ -44,7 +42,7 @@ export async function fetchBag(deviceId: string): Promise<BagOutput> {
       return { authURL: defaultAuthURL };
     }
 
-    return { authURL };
+    return { authURL: normalizeAuthURL(authURL) };
   } catch (error) {
     console.warn(
       `[Bag] Failed to fetch/parse bag, using default auth endpoint: ${

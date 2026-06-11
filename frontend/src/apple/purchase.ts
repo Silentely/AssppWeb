@@ -15,6 +15,13 @@ export class PurchaseError extends Error {
   }
 }
 
+export function isPurchaseAuthExpired(error: unknown): boolean {
+  return (
+    error instanceof PurchaseError &&
+    (error.code === "2034" || error.code === "2042" || error.code === "1008")
+  );
+}
+
 const LOG_PREFIX = "[Purchase]";
 
 type UnknownDict = Record<string, unknown>;
@@ -120,7 +127,9 @@ async function purchaseWithParams(
     "Content-Type": "application/x-apple-plist",
     "iCloud-DSID": account.directoryServicesIdentifier,
     "X-Dsid": account.directoryServicesIdentifier,
-    "X-Apple-Store-Front": `${account.store}-1`,
+    "X-Apple-Store-Front": `${account.store}-${
+      app.kind === "mac-software" ? "6" : "1"
+    }`,
     "X-Token": account.passwordToken,
   };
 
@@ -155,6 +164,7 @@ async function purchaseWithParams(
   const updatedCookies = extractAndMergeCookies(
     response.rawHeaders,
     account.cookies,
+    host,
   );
 
   const dict = parsePlist(response.body) as UnknownDict;
@@ -198,10 +208,13 @@ async function purchaseWithParams(
         throw new PurchaseError(i18n.t("errors.purchase.unavailable"), "2059");
       case "2034":
       case "2042":
+      case "1008":
         throw new PurchaseError(
           i18n.t("errors.purchase.passwordExpired"),
           failureType,
         );
+      case "5002":
+        return { updatedCookies };
       default: {
         if (customerMessage === "Your password has changed.") {
           throw new PurchaseError(

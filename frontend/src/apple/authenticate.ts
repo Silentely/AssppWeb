@@ -3,7 +3,13 @@ import { appleRequest } from "./request";
 import { buildPlist, parsePlist } from "./plist";
 import { extractAndMergeCookies } from "./cookies";
 import { fetchBag, defaultAuthURL } from "./bag";
+import { authURLFromText, normalizeAuthURL } from "./authEndpoint";
 import i18n from "../i18n";
+
+const failureTypeInvalidCredentials = "-5000";
+const customerMessageBadLogin = "MZFinance.BadLogin.Configurator_message";
+const customerMessageAccountDisabled = "Your account is disabled.";
+const maxLoginAttempts = 4;
 
 export class AuthenticationError extends Error {
   constructor(
@@ -28,27 +34,30 @@ export async function authenticate(
 
   const defaultAuthEndpoint = new URL(defaultAuthURL);
   defaultAuthEndpoint.searchParams.set("guid", deviceId);
+  let currentAuthBaseURL = normalizeAuthURL(defaultAuthURL);
   let requestHost = defaultAuthEndpoint.hostname;
   let requestPath = `${defaultAuthEndpoint.pathname}${defaultAuthEndpoint.search}`;
 
   const bag = await fetchBag(deviceId);
-  const authEndpoint = new URL(bag.authURL);
+  const authEndpoint = new URL(normalizeAuthURL(bag.authURL));
   authEndpoint.searchParams.set("guid", deviceId);
+  currentAuthBaseURL = normalizeAuthURL(bag.authURL);
   requestHost = authEndpoint.hostname;
   requestPath = `${authEndpoint.pathname}${authEndpoint.search}`;
 
-  let currentAttempt = 0;
-  let redirectAttempt = 0;
+  let pod: string | undefined;
 
-  while (currentAttempt < 2 && redirectAttempt <= 3) {
-    currentAttempt++;
-
+  for (
+    let currentAttempt = 1;
+    currentAttempt <= maxLoginAttempts;
+    currentAttempt++
+  ) {
     try {
       const body: Record<string, string> = {
         appleId: email,
-        attempt: code ? "2" : "4",
+        attempt: String(currentAttempt),
         guid: deviceId,
-        password: code ? `${password}${code}` : password,
+        password: code ? `${password}${code.replace(/ /g, "")}` : password,
         rmp: "0",
         why: "signIn",
       };
@@ -56,7 +65,7 @@ export async function authenticate(
       const plistBody = buildPlist(body);
 
       const headers: Record<string, string> = {
-        "Content-Type": "application/x-apple-plist",
+        "Content-Type": "application/x-www-form-urlencoded",
       };
 
       const response = await appleRequest({
@@ -68,7 +77,11 @@ export async function authenticate(
         cookies,
       });
 
-      cookies = extractAndMergeCookies(response.rawHeaders, cookies);
+      cookies = extractAndMergeCookies(
+        response.rawHeaders,
+        cookies,
+        requestHost,
+      );
 
       // Read store front
       const storeHeader = response.headers["x-set-apple-store-front"];
@@ -81,7 +94,7 @@ export async function authenticate(
 
       // Read pod
       const podHeader = response.headers["pod"];
-      const pod = podHeader || undefined;
+      pod = podHeader || undefined;
 
       // Handle redirect
       if (response.status === 302) {
@@ -92,25 +105,98 @@ export async function authenticate(
         const url = new URL(location);
         requestHost = url.hostname;
         requestPath = url.pathname + url.search;
-        currentAttempt--;
-        redirectAttempt++;
         continue;
+      }
+
+      if (response.status === 429) {
+        throw new AuthenticationError(
+          i18n.t("errors.auth.rateLimited", {
+            defaultValue:
+              "Apple authentication is temporarily rate limited. Stop retrying and wait before trying again.",
+          }),
+        );
       }
 
       // Handle non-plist responses (e.g. 403 with empty body)
       if (!response.body.trim()) {
-        throw new Error(
+        if (response.status === 200) {
+          if (!code) {
+            throw new AuthenticationError(
+              i18n.t("errors.auth.requiresVerification"),
+              true,
+            );
+          }
+          throw new AuthenticationError(
+            i18n.t("errors.auth.missingSessionToken", {
+              defaultValue:
+                "Login response did not include an App Store session token",
+            }),
+          );
+        }
+
+        throw new AuthenticationError(
           i18n.t("errors.auth.emptyBody", { status: response.status }),
         );
       }
 
-      const dict = parsePlist(response.body) as Record<string, any>;
+      const trimmedBody = response.body.trim();
+      if (!trimmedBody.startsWith("<")) {
+        const discoveredAuthURL = authURLFromText(trimmedBody);
+        if (discoveredAuthURL && discoveredAuthURL !== currentAuthBaseURL) {
+          const endpoint = new URL(discoveredAuthURL);
+          endpoint.searchParams.set("guid", deviceId);
+          currentAuthBaseURL = discoveredAuthURL;
+          requestHost = endpoint.hostname;
+          requestPath = `${endpoint.pathname}${endpoint.search}`;
+          continue;
+        }
+
+        try {
+          const json = JSON.parse(trimmedBody) as Record<string, any>;
+          const message =
+            (json.customerMessage as string) ||
+            (json.error as string) ||
+            (json.message as string) ||
+            JSON.stringify(json);
+          throw new AuthenticationError(message);
+        } catch (error) {
+          if (error instanceof AuthenticationError) throw error;
+          throw new AuthenticationError(
+            `Unexpected Apple auth response: HTTP ${response.status}, content-type ${response.headers["content-type"] || "unknown"}, body starts with ${previewResponseBody(response.body)}`,
+          );
+        }
+      }
+
+      let dict: Record<string, any>;
+      try {
+        dict = parsePlist(response.body) as Record<string, any>;
+      } catch (error) {
+        const discoveredAuthURL = authURLFromText(response.body);
+        if (discoveredAuthURL && discoveredAuthURL !== currentAuthBaseURL) {
+          const endpoint = new URL(discoveredAuthURL);
+          endpoint.searchParams.set("guid", deviceId);
+          currentAuthBaseURL = discoveredAuthURL;
+          requestHost = endpoint.hostname;
+          requestPath = `${endpoint.pathname}${endpoint.search}`;
+          continue;
+        }
+
+        throw new AuthenticationError(
+          `Unexpected Apple auth response: HTTP ${response.status}, content-type ${response.headers["content-type"] || "unknown"}, body starts with ${previewResponseBody(response.body)}; ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+
+      if (dict.failureType === failureTypeInvalidCredentials) {
+        throw new AuthenticationError(invalidCredentialsMessage(dict));
+      }
 
       // Check for 2FA requirement
       if (
         dict.failureType === "" &&
         !code &&
-        dict.customerMessage === "MZFinance.BadLogin.Configurator_message"
+        dict.customerMessage === customerMessageBadLogin
       ) {
         throw new AuthenticationError(
           i18n.t("errors.auth.requiresVerification"),
@@ -118,20 +204,59 @@ export async function authenticate(
         );
       }
 
-      const failureMessage =
-        (dict.dialog as Record<string, any>)?.explanation ??
-        dict.customerMessage;
+      if (
+        dict.failureType === "" &&
+        dict.customerMessage === customerMessageAccountDisabled
+      ) {
+        throw new AuthenticationError(
+          i18n.t("errors.auth.accountDisabled", {
+            defaultValue: "Account is disabled",
+          }),
+        );
+      }
+
+      const failureMessage = authFailureMessage(dict) ?? dict.customerMessage;
+
+      if (dict.failureType) {
+        throw new AuthenticationError(
+          failureMessage ?? i18n.t("errors.auth.unknownReason"),
+        );
+      }
+
+      if (response.status !== 200) {
+        throw new AuthenticationError(
+          failureMessage ?? i18n.t("errors.auth.unknownReason"),
+        );
+      }
+
+      if (!dict.passwordToken || !dict.dsPersonId) {
+        if (!code) {
+          throw new AuthenticationError(
+            i18n.t("errors.auth.requiresVerification"),
+            true,
+          );
+        }
+        throw new AuthenticationError(
+          failureMessage ??
+            i18n.t("errors.auth.missingSessionToken", {
+              defaultValue:
+                "Login response did not include an App Store session token",
+            }),
+        );
+      }
 
       const accountInfo = dict.accountInfo as Record<string, any>;
       if (!accountInfo) {
-        throw new Error(
+        throw new AuthenticationError(
           failureMessage ?? i18n.t("errors.auth.missingAccountInfo"),
         );
       }
 
       const address = accountInfo.address as Record<string, any>;
       if (!address) {
-        throw new Error(failureMessage ?? i18n.t("errors.auth.missingAddress"));
+        throw new AuthenticationError(
+          failureMessage ?? i18n.t("errors.auth.missingAddress"),
+        );
       }
 
       const account: Account = {
@@ -155,5 +280,30 @@ export async function authenticate(
     }
   }
 
-  throw lastError ?? new Error(i18n.t("errors.auth.unknownReason"));
+  throw (
+    lastError ??
+    new Error(
+      i18n.t("errors.auth.tooManyAttempts", {
+        defaultValue: "Too many login attempts",
+      }),
+    )
+  );
+}
+
+function previewResponseBody(body: string): string {
+  const cleaned = body.replace(/\s+/g, " ").trim().slice(0, 120);
+  return JSON.stringify(cleaned);
+}
+
+function authFailureMessage(dict: Record<string, any>): string | undefined {
+  return (dict.dialog as Record<string, any> | undefined)?.explanation;
+}
+
+function invalidCredentialsMessage(dict: Record<string, any>): string {
+  return (
+    authFailureMessage(dict) ||
+    i18n.t("errors.auth.invalidCredentials", {
+      defaultValue: "Apple ID or password is incorrect",
+    })
+  );
 }
