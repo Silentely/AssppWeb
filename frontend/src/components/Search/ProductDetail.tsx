@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useLocation, Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import PageContainer from "../Layout/PageContainer";
@@ -6,13 +6,18 @@ import AppIcon from "../common/AppIcon";
 import { useAccounts } from "../../hooks/useAccounts";
 import { useDownloadAction } from "../../hooks/useDownloadAction";
 import { lookupApp } from "../../api/search";
-import { storeIdToCountry } from "../../apple/config";
+import { useUiPreferencesStore } from "../../store/uiPreferences";
+import { useSettingsStore } from "../../store/settings";
+import { preferredAccountEmail } from "../../utils/accountSelection";
 import type { Software } from "../../types";
 
 export default function ProductDetail() {
   const { appId } = useParams<{ appId: string }>();
   const location = useLocation();
   const { accounts } = useAccounts();
+  const { selectedAccountEmail, setSelectedAccountEmail } =
+    useUiPreferencesStore();
+  const { defaultCountry } = useSettingsStore();
   const { t } = useTranslation();
   const {
     startDownload,
@@ -24,20 +29,16 @@ export default function ProductDetail() {
   const stateApp = (location.state as { app?: Software; country?: string })
     ?.app;
   const stateCountry = (location.state as { country?: string })?.country;
-  const [country] = useState(stateCountry ?? "US");
+  const [country] = useState(stateCountry ?? defaultCountry ?? "US");
   const [app, setApp] = useState<Software | null>(stateApp ?? null);
   const [loading, setLoading] = useState(!stateApp);
-  const [selectedAccount, setSelectedAccount] = useState("");
+  const [selectedAccount, setSelectedAccount] = useState(selectedAccountEmail);
   const [loadingAction, setLoadingAction] = useState<
     "purchase" | "download" | null
   >(null);
+  const appliedInitialAccount = useRef(false);
 
-  const filteredAccounts = useMemo(
-    () => accounts.filter((a) => storeIdToCountry(a.store) === country),
-    [accounts, country],
-  );
-
-  const account = filteredAccounts.find((a) => a.email === selectedAccount);
+  const account = accounts.find((a) => a.email === selectedAccount);
 
   useEffect(() => {
     if (!stateApp && appId) {
@@ -54,13 +55,23 @@ export default function ProductDetail() {
   }, [appId, stateApp, country]);
 
   useEffect(() => {
-    if (
-      filteredAccounts.length > 0 &&
-      !filteredAccounts.some((a) => a.email === selectedAccount)
-    ) {
-      setSelectedAccount(filteredAccounts[0].email);
+    if (accounts.length > 0) {
+      const selectedStillExists = accounts.some(
+        (a) => a.email === selectedAccount,
+      );
+      if (appliedInitialAccount.current && selectedStillExists) return;
+
+      const nextAccount = preferredAccountEmail(
+        accounts,
+        selectedAccountEmail,
+        country,
+      );
+      appliedInitialAccount.current = true;
+      if (nextAccount === selectedAccount) return;
+      setSelectedAccount(nextAccount);
+      // 只在自动选择时更新本地 state，不写入全局偏好
     }
-  }, [filteredAccounts, selectedAccount]);
+  }, [accounts, country, selectedAccount, selectedAccountEmail]);
 
   if (loading) {
     return (
@@ -131,10 +142,6 @@ export default function ProductDetail() {
             </Link>{" "}
             {t("search.product.addAccountPrompt")}
           </div>
-        ) : filteredAccounts.length === 0 ? (
-          <div className="p-4 bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-800 rounded-lg text-sm text-yellow-700 dark:text-yellow-400">
-            {t("search.product.noAccountsForRegion")}
-          </div>
         ) : (
           <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4 space-y-4">
             <div>
@@ -143,11 +150,14 @@ export default function ProductDetail() {
               </label>
               <select
                 value={selectedAccount}
-                onChange={(e) => setSelectedAccount(e.target.value)}
+                onChange={(e) => {
+                  setSelectedAccount(e.target.value);
+                  setSelectedAccountEmail(e.target.value);
+                }}
                 className="rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-base text-gray-900 dark:text-white w-full focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
                 disabled={loadingAction !== null}
               >
-                {filteredAccounts.map((a) => (
+                {accounts.map((a) => (
                   <option key={a.email} value={a.email}>
                     {a.firstName} {a.lastName} ({a.email})
                   </option>
@@ -166,22 +176,26 @@ export default function ProductDetail() {
                     : t("search.product.getLicense")}
                 </button>
               )}
-              <button
-                onClick={handleDownload}
-                disabled={loadingAction !== null}
-                className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
-              >
-                {loadingAction === "download"
-                  ? t("search.product.processing")
-                  : t("search.product.download")}
-              </button>
-              <Link
-                to={`/search/${app.id}/versions`}
-                state={{ app, country }}
-                className="px-4 py-2 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-              >
-                {t("search.product.versionHistory")}
-              </Link>
+              {app.kind !== "mac-software" && (
+                <>
+                  <button
+                    onClick={handleDownload}
+                    disabled={loadingAction !== null}
+                    className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                  >
+                    {loadingAction === "download"
+                      ? t("search.product.processing")
+                      : t("search.product.download")}
+                  </button>
+                  <Link
+                    to={`/search/${app.id}/versions`}
+                    state={{ app, country }}
+                    className="px-4 py-2 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                  >
+                    {t("search.product.versionHistory")}
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         )}

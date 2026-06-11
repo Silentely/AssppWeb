@@ -227,15 +227,15 @@ function initOnStartup() {
     }
   }
 
-  // Clean up orphaned IPA files (files without a task)
-  cleanOrphanedPackages();
+  // Clean up orphaned temp chunk files (.ipa.partN)
+  cleanOrphanedTempChunks();
 
   // Run time-based cleanup once on startup, then schedule daily
   runTimeCleanup();
   scheduleDailyCleanup();
 }
 
-function cleanOrphanedPackages() {
+function cleanOrphanedTempChunks() {
   const knownPaths = new Set<string>();
   for (const task of tasks.values()) {
     if (task.filePath) {
@@ -256,8 +256,12 @@ function cleanOrphanedPackages() {
         if (fs.readdirSync(fullPath).length === 0) {
           fs.rmdirSync(fullPath);
         }
-      } else if (entry.isFile() && !knownPaths.has(path.resolve(fullPath))) {
-        // Orphaned file or leftover .part temp file — remove
+      } else if (
+        entry.isFile() &&
+        !knownPaths.has(path.resolve(fullPath)) &&
+        /\.ipa\.part\d+$/.test(entry.name)
+      ) {
+        // Remove leftover chunk temp files, but keep orphaned .ipa files.
         fs.unlinkSync(fullPath);
       }
     }

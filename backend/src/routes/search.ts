@@ -100,6 +100,7 @@ function mapLegacySoftware(item: Record<string, any>) {
     bundleID: item.bundleId,
     name: item.trackName,
     version: item.version,
+    kind: item.kind,
     price: item.price,
     artistName: item.artistName,
     sellerName: item.sellerName,
@@ -228,6 +229,7 @@ function mapSerpSoftware(item: Record<string, any>) {
     bundleID: toString(item.bundle_id ?? item.bundleId),
     name: toString(item.title ?? item.track_name ?? item.name),
     version: toString(item.version ?? item.current_version),
+    kind: toString(item.kind),
     price: priceValue,
     artistName: toString(
       item.developer ?? item.artist_name ?? item.artistName ?? item.seller_name,
@@ -347,10 +349,22 @@ async function searchViaSerpApi(
   return organicResults.map(mapSerpSoftware);
 }
 
+function deviceToEntity(device: "mobile" | "tablet" | "desktop"): string {
+  switch (device) {
+    case "desktop":
+      return "macSoftware";
+    case "tablet":
+      return "iPadSoftware";
+    default:
+      return "software";
+  }
+}
+
 async function lookupManyViaLegacyApi(
   appIds: number[],
   country: string,
   reqId: string,
+  device: "mobile" | "tablet" | "desktop" = "mobile",
 ): Promise<ReturnType<typeof mapLegacySoftware>[]> {
   if (!appIds.length) {
     return [];
@@ -365,7 +379,7 @@ async function lookupManyViaLegacyApi(
 
   const params = new URLSearchParams({ country });
   params.set("id", uniqueIds.join(","));
-  params.set("entity", "software");
+  params.set("entity", deviceToEntity(device));
 
   const data = await fetchJson(
     `${LEGACY_ITUNES_BASE_URL}/lookup?${params.toString()}`,
@@ -380,6 +394,7 @@ async function hydrateSerpResultsWithLegacyLookup(
   serpResults: ReturnType<typeof mapLegacySoftware>[],
   country: string,
   reqId: string,
+  device: "mobile" | "tablet" | "desktop" = "mobile",
 ): Promise<ReturnType<typeof mapLegacySoftware>[]> {
   if (!serpResults.length) {
     return [];
@@ -408,7 +423,7 @@ async function hydrateSerpResultsWithLegacyLookup(
     lookupIdCount: appIds.length,
     sampleIds: appIds.slice(0, 10),
   });
-  const legacyResults = await lookupManyViaLegacyApi(appIds, country, reqId);
+  const legacyResults = await lookupManyViaLegacyApi(appIds, country, reqId, device);
   const legacyById = new Map(legacyResults.map((item) => [item.id, item]));
 
   const hydrated = validSerpResults
@@ -530,6 +545,7 @@ router.get("/search", async (req: Request, res: Response) => {
           serpResults,
           country,
           reqId,
+          device,
         );
         logDebug(reqId, "serp hydration completed", {
           term: termForLog,

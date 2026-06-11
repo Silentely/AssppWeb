@@ -7,16 +7,18 @@ import { useAccounts } from "../../hooks/useAccounts";
 import { useDownloadAction } from "../../hooks/useDownloadAction";
 import { useSettingsStore } from "../../store/settings";
 import { useToastStore } from "../../store/toast";
+import { useUiPreferencesStore } from "../../store/uiPreferences";
 import { lookupApp } from "../../api/search";
 import { listVersions } from "../../apple/versionFinder";
 import { countryCodeMap, storeIdToCountry } from "../../apple/config";
-import { firstAccountCountry } from "../../utils/account";
 import { getErrorMessage } from "../../utils/error";
 import type { Software } from "../../types";
 
 export default function AddDownload() {
   const { accounts, updateAccount } = useAccounts();
   const { defaultCountry } = useSettingsStore();
+  const { selectedAccountEmail, setSelectedAccountEmail } =
+    useUiPreferencesStore();
   const { t } = useTranslation();
   const addToast = useToastStore((s) => s.addToast);
   const {
@@ -29,7 +31,7 @@ export default function AddDownload() {
   const [bundleId, setBundleId] = useState("");
   const [country, setCountry] = useState(defaultCountry);
   const [countryTouched, setCountryTouched] = useState(false);
-  const [selectedAccount, setSelectedAccount] = useState("");
+  const [selectedAccount, setSelectedAccount] = useState(selectedAccountEmail);
   const [app, setApp] = useState<Software | null>(null);
   const [versions, setVersions] = useState<string[]>([]);
   const [selectedVersion, setSelectedVersion] = useState("");
@@ -64,23 +66,33 @@ export default function AddDownload() {
         !selectedAccount ||
         !filteredAccounts.find((a) => a.email === selectedAccount)
       ) {
-        setSelectedAccount(filteredAccounts[0].email);
+        const nextAccount = filteredAccounts.some(
+          (a) => a.email === selectedAccountEmail,
+        )
+          ? selectedAccountEmail
+          : filteredAccounts[0].email;
+        setSelectedAccount(nextAccount);
+        setSelectedAccountEmail(nextAccount);
       }
     } else if (selectedAccount !== "") {
       setSelectedAccount("");
     }
-  }, [filteredAccounts, selectedAccount]);
+  }, [
+    filteredAccounts,
+    selectedAccount,
+    selectedAccountEmail,
+    setSelectedAccountEmail,
+  ]);
 
   const account = accounts.find((a) => a.email === selectedAccount);
-  const autoCountry = firstAccountCountry(accounts);
 
   useEffect(() => {
     if (countryTouched) return;
-    const nextCountry = autoCountry ?? defaultCountry;
+    const nextCountry = defaultCountry || "US";
     if (nextCountry && nextCountry !== country) {
       setCountry(nextCountry);
     }
-  }, [autoCountry, country, countryTouched, defaultCountry]);
+  }, [country, countryTouched, defaultCountry]);
 
   async function handleLookup(e: React.FormEvent) {
     e.preventDefault();
@@ -182,7 +194,10 @@ export default function AddDownload() {
             />
             <select
               value={selectedAccount}
-              onChange={(e) => setSelectedAccount(e.target.value)}
+              onChange={(e) => {
+                setSelectedAccount(e.target.value);
+                setSelectedAccountEmail(e.target.value);
+              }}
               className="w-1/2 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-base text-gray-900 dark:text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 truncate disabled:bg-gray-50 dark:disabled:bg-gray-800/50 disabled:text-gray-500 dark:disabled:text-gray-400 disabled:cursor-not-allowed transition-colors"
               disabled={isLoading || filteredAccounts.length === 0}
             >
@@ -277,7 +292,7 @@ export default function AddDownload() {
                     : t("downloads.add.getLicense")}
                 </button>
               )}
-              {step !== "versions" && (
+              {app.kind !== "mac-software" && step !== "versions" && (
                 <button
                   onClick={handleLoadVersions}
                   disabled={isLoading || !account}
@@ -288,15 +303,17 @@ export default function AddDownload() {
                     : t("downloads.add.selectVersion")}
                 </button>
               )}
-              <button
-                onClick={handleDownload}
-                disabled={isLoading || !account}
-                className="px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {loadingAction === "download"
-                  ? t("downloads.add.processing")
-                  : t("downloads.add.download")}
-              </button>
+              {app.kind !== "mac-software" && (
+                <button
+                  onClick={handleDownload}
+                  disabled={isLoading || !account}
+                  className="px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {loadingAction === "download"
+                    ? t("downloads.add.processing")
+                    : t("downloads.add.download")}
+                </button>
+              )}
             </div>
           </div>
         )}

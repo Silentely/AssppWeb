@@ -2,8 +2,8 @@ import { useTranslation } from "react-i18next";
 import { useAccounts } from "./useAccounts";
 import { useToastStore } from "../store/toast";
 import { useDownloadsStore } from "../store/downloads";
-import { getDownloadInfo } from "../apple/download";
-import { purchaseApp } from "../apple/purchase";
+import { getDownloadInfo, isDownloadAuthExpired } from "../apple/download";
+import { isPurchaseAuthExpired, purchaseApp } from "../apple/purchase";
 import { authenticate } from "../apple/authenticate";
 import { storeIdToCountry } from "../apple/config";
 import { apiPost, apiGet } from "../api/client";
@@ -24,6 +24,18 @@ export function useDownloadAction() {
   const addToast = useToastStore((s) => s.addToast);
   const fetchTasks = useDownloadsStore((s) => s.fetchTasks);
   const { t } = useTranslation();
+
+  async function reauthenticate(account: Account): Promise<Account> {
+    const renewed = await authenticate(
+      account.email,
+      account.password,
+      undefined,
+      account.cookies,
+      account.deviceIdentifier,
+    );
+    await updateAccount(renewed);
+    return renewed;
+  }
 
   async function resolveCanonicalApp(
     account: Account,
@@ -104,18 +116,26 @@ export function useDownloadAction() {
         }
       }
     } catch {
-      // Settings fetch failed — backend will still enforce the limit
+      // Backend still enforces this limit if settings cannot be fetched.
       console.warn(`${LOG_PREFIX} settings pre-check failed, continue`, {
         appId: effectiveApp.id,
         bundleID: effectiveApp.bundleID,
       });
     }
 
-    const { output, updatedCookies } = await getDownloadInfo(
-      account,
-      effectiveApp,
-      versionId,
-    );
+    let currentAccount = account;
+    let downloadResult: Awaited<ReturnType<typeof getDownloadInfo>>;
+    try {
+      downloadResult = await getDownloadInfo(currentAccount, effectiveApp, versionId);
+    } catch (error) {
+      if (!isDownloadAuthExpired(error)) {
+        throw error;
+      }
+      currentAccount = await reauthenticate(currentAccount);
+      downloadResult = await getDownloadInfo(currentAccount, effectiveApp, versionId);
+    }
+
+    const { output, updatedCookies } = downloadResult;
     console.info(`${LOG_PREFIX} apple download info acquired`, {
       appId: effectiveApp.id,
       bundleID: effectiveApp.bundleID,
@@ -123,8 +143,8 @@ export function useDownloadAction() {
       sinfCount: output.sinfs.length,
       hasMetadata: Boolean(output.iTunesMetadata),
     });
-    await updateAccount({ ...account, cookies: updatedCookies });
-    const hash = await accountHash(account);
+    await updateAccount({ ...currentAccount, cookies: updatedCookies });
+    const hash = await accountHash(currentAccount);
 
     await apiPost("/api/downloads", {
       software: {
@@ -162,35 +182,18 @@ export function useDownloadAction() {
     const ctx = getAccountContext(account, t);
     const appName = effectiveApp.name;
 
-    // Silently renew the password token before purchasing.
-    // This prevents "token expired" (2034/2042) errors that would
-    // otherwise require the user to manually re-authenticate.
     let currentAccount = account;
+    let result: Awaited<ReturnType<typeof purchaseApp>>;
     try {
-      const renewed = await authenticate(
-        account.email,
-        account.password,
-        undefined,
-        account.cookies,
-        account.deviceIdentifier,
-      );
-      await updateAccount(renewed);
-      currentAccount = renewed;
-      console.info(`${LOG_PREFIX} token renewed before purchase`, {
-        appId: effectiveApp.id,
-        bundleID: effectiveApp.bundleID,
-        store: renewed.store,
-        pod: renewed.pod ?? "",
-      });
-    } catch {
-      // Ignore — proceed with existing token
-      console.warn(`${LOG_PREFIX} token renew failed, use existing token`, {
-        appId: effectiveApp.id,
-        bundleID: effectiveApp.bundleID,
-      });
+      result = await purchaseApp(currentAccount, effectiveApp);
+    } catch (error) {
+      if (!isPurchaseAuthExpired(error)) {
+        throw error;
+      }
+      currentAccount = await reauthenticate(currentAccount);
+      result = await purchaseApp(currentAccount, effectiveApp);
     }
 
-    const result = await purchaseApp(currentAccount, effectiveApp);
     await updateAccount({ ...currentAccount, cookies: result.updatedCookies });
     console.info(`${LOG_PREFIX} license acquired`, {
       appId: effectiveApp.id,
