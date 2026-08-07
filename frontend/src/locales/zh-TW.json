@@ -454,6 +454,9 @@
     "msgFailed": "{{appName}}\n{{userName}} / {{appleId}} - {{country}}\n\n錯誤: {{error}}",
     "downloadLimit": {
       "message": "{{appName}}\n應用程式大小 {{size}} MB 超過伺服器限制 {{limit}} MB。\n請聯絡管理員或自行部署後再嘗試。"
-    }
+    },
+    "unknownAccount": "未知帳號",
+    "unknownError": "未知錯誤",
+    "close": "關閉通知"
   }
 }

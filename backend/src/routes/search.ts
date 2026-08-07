@@ -1,48 +1,20 @@
 import { Router, Request, Response } from "express";
 import { config } from "../config.js";
-import { getRequestId } from "../utils/requestLog.js";
+import {
+  durationMs,
+  getRequestId,
+  logError,
+  logInfo,
+  logWarn,
+  safeErrorMessage,
+  safeHeaderValue,
+} from "../utils/requestLog.js";
 
 const router = Router();
 const LEGACY_ITUNES_BASE_URL = "https://itunes.apple.com";
 const SERPAPI_SEARCH_URL = "https://serpapi.com/search.json";
 const DEFAULT_LIMIT = 25;
-const SEARCH_LOG_PREFIX = "[SearchRoute]";
-
-function logInfo(
-  reqId: string,
-  message: string,
-  meta?: Record<string, unknown>,
-): void {
-  if (meta) {
-    console.log(`${SEARCH_LOG_PREFIX} [${reqId}] ${message}`, meta);
-    return;
-  }
-  console.log(`${SEARCH_LOG_PREFIX} [${reqId}] ${message}`);
-}
-
-function logWarn(
-  reqId: string,
-  message: string,
-  meta?: Record<string, unknown>,
-): void {
-  if (meta) {
-    console.warn(`${SEARCH_LOG_PREFIX} [${reqId}] ${message}`, meta);
-    return;
-  }
-  console.warn(`${SEARCH_LOG_PREFIX} [${reqId}] ${message}`);
-}
-
-function logError(
-  reqId: string,
-  message: string,
-  meta?: Record<string, unknown>,
-): void {
-  if (meta) {
-    console.error(`${SEARCH_LOG_PREFIX} [${reqId}] ${message}`, meta);
-    return;
-  }
-  console.error(`${SEARCH_LOG_PREFIX} [${reqId}] ${message}`);
-}
+const SEARCH_LOG_SCOPE = "SearchRoute";
 
 function logDebug(
   reqId: string,
@@ -52,11 +24,7 @@ function logDebug(
   if (!config.searchDebug) {
     return;
   }
-  if (meta) {
-    console.log(`${SEARCH_LOG_PREFIX} [${reqId}] [debug] ${message}`, meta);
-    return;
-  }
-  console.log(`${SEARCH_LOG_PREFIX} [${reqId}] [debug] ${message}`);
+  logInfo(SEARCH_LOG_SCOPE, reqId, `[debug] ${message}`, meta);
 }
 
 function sanitizeUrlForLog(rawUrl: string): string {
@@ -76,21 +44,6 @@ function trimLogText(value: string, maxLength: number = 64): string {
     return value;
   }
   return `${value.slice(0, maxLength)}...`;
-}
-
-function headerValueToString(value: string | string[] | undefined): string {
-  if (Array.isArray(value)) {
-    return value.join(", ");
-  }
-  return value ?? "";
-}
-
-function safeErrorMessage(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
-}
-
-function durationMs(startedAt: number): number {
-  return Date.now() - startedAt;
 }
 
 // Map iTunes API fields to our Software type, matching Swift CodingKeys
@@ -282,7 +235,7 @@ async function fetchJson(
   });
 
   if (!response.ok) {
-    logWarn(reqId, `${context}: upstream non-2xx`, {
+    logWarn(SEARCH_LOG_SCOPE, reqId, `${context}: upstream non-2xx`, {
       status: response.status,
       durationMs: durationMs(upstreamStartedAt),
       url: sanitizeUrlForLog(url),
@@ -312,7 +265,7 @@ async function fetchJson(
     });
     return parsed;
   } catch {
-    logWarn(reqId, `${context}: invalid json`, {
+    logWarn(SEARCH_LOG_SCOPE, reqId, `${context}: invalid json`, {
       bodyPreview: trimLogText(rawText, 120),
       bodyLength: rawText.length,
     });
@@ -405,7 +358,7 @@ async function hydrateSerpResultsWithLegacyLookup(
   );
   const droppedInvalidCount = serpResults.length - validSerpResults.length;
   if (droppedInvalidCount > 0) {
-    logWarn(reqId, "drop serp results with invalid app id", {
+    logWarn(SEARCH_LOG_SCOPE, reqId, "drop serp results with invalid app id", {
       droppedInvalidCount,
       totalSerpResults: serpResults.length,
       sampleNames: serpResults
@@ -432,7 +385,7 @@ async function hydrateSerpResultsWithLegacyLookup(
 
   const unresolvedCount = validSerpResults.length - hydrated.length;
   if (unresolvedCount > 0) {
-    logWarn(reqId, "drop serp results missing iTunes lookup match", {
+    logWarn(SEARCH_LOG_SCOPE, reqId, "drop serp results missing iTunes lookup match", {
       unresolvedCount,
       validSerpCount: validSerpResults.length,
       sampleMissingIds: validSerpResults
@@ -493,7 +446,7 @@ router.get("/search", async (req: Request, res: Response) => {
   try {
     const term = toString(req.query.term).trim();
     if (!term) {
-      logWarn(reqId, "missing required term parameter", {
+      logWarn(SEARCH_LOG_SCOPE, reqId, "missing required term parameter", {
         queryKeys: Object.keys(req.query ?? {}),
       });
       res.status(400).json({ error: "Missing term parameter" });
@@ -505,7 +458,7 @@ router.get("/search", async (req: Request, res: Response) => {
     const device = mapEntityToDevice(req.query.entity);
     const termForLog = trimLogText(term);
 
-    logInfo(reqId, "/search request start", {
+    logInfo(SEARCH_LOG_SCOPE, reqId, "/search request start", {
       method: req.method,
       path: req.path,
       term: termForLog,
@@ -514,7 +467,7 @@ router.get("/search", async (req: Request, res: Response) => {
       device,
       hasSerpApiKey: Boolean(config.serpApiKey),
       provider: config.serpApiKey ? "serpapi+itunes-hydrate" : "itunes",
-      userAgent: trimLogText(headerValueToString(req.headers["user-agent"]), 80),
+      userAgent: safeHeaderValue(req.headers["user-agent"], 80),
       ip: req.ip,
     });
 
@@ -532,7 +485,7 @@ router.get("/search", async (req: Request, res: Response) => {
           serpCount: serpResults.length,
         });
         if (!serpResults.length) {
-          logInfo(reqId, "/search completed", {
+          logInfo(SEARCH_LOG_SCOPE, reqId, "/search completed", {
             provider: "serpapi",
             resultCount: 0,
             durationMs: durationMs(routeStartedAt),
@@ -553,7 +506,7 @@ router.get("/search", async (req: Request, res: Response) => {
           sourceCount: serpResults.length,
         });
         if (results.length > 0) {
-          logInfo(reqId, "/search completed", {
+          logInfo(SEARCH_LOG_SCOPE, reqId, "/search completed", {
             provider: "serpapi+itunes-hydrate",
             resultCount: results.length,
             durationMs: durationMs(routeStartedAt),
@@ -562,7 +515,7 @@ router.get("/search", async (req: Request, res: Response) => {
           return;
         }
 
-        logWarn(reqId, "serp results unusable, fallback to itunes search", {
+        logWarn(SEARCH_LOG_SCOPE, reqId, "serp results unusable, fallback to itunes search", {
           term: termForLog,
           country,
           limit,
@@ -570,7 +523,7 @@ router.get("/search", async (req: Request, res: Response) => {
           durationMs: durationMs(routeStartedAt),
         });
       } catch (err) {
-        logWarn(reqId, "serp search failed, fallback to itunes search", {
+        logWarn(SEARCH_LOG_SCOPE, reqId, "serp search failed, fallback to itunes search", {
           term: termForLog,
           country,
           message: safeErrorMessage(err),
@@ -595,14 +548,14 @@ router.get("/search", async (req: Request, res: Response) => {
       term: termForLog,
       count: results.length,
     });
-    logInfo(reqId, "/search completed", {
+    logInfo(SEARCH_LOG_SCOPE, reqId, "/search completed", {
       provider: config.serpApiKey ? "itunes-fallback" : "itunes",
       resultCount: results.length,
       durationMs: durationMs(routeStartedAt),
     });
     res.json(results);
   } catch (err) {
-    logError(reqId, "/search failed", {
+    logError(SEARCH_LOG_SCOPE, reqId, "/search failed", {
       message: safeErrorMessage(err),
       durationMs: durationMs(routeStartedAt),
       ...(config.searchDebug && err instanceof Error
@@ -619,7 +572,7 @@ router.get("/lookup", async (req: Request, res: Response) => {
   try {
     const identifier = toString(req.query.bundleId ?? req.query.id).trim();
     if (!identifier) {
-      logWarn(reqId, "missing required bundleId/id parameter", {
+      logWarn(SEARCH_LOG_SCOPE, reqId, "missing required bundleId/id parameter", {
         queryKeys: Object.keys(req.query ?? {}),
       });
       res.status(400).json({ error: "Missing bundleId parameter" });
@@ -628,7 +581,7 @@ router.get("/lookup", async (req: Request, res: Response) => {
 
     const country = normalizeCountry(req.query.country);
     const appId = parseAppId(identifier);
-    logInfo(reqId, "/lookup request start", {
+    logInfo(SEARCH_LOG_SCOPE, reqId, "/lookup request start", {
       method: req.method,
       path: req.path,
       identifier: trimLogText(identifier),
@@ -636,7 +589,7 @@ router.get("/lookup", async (req: Request, res: Response) => {
       parsedAppId: appId ?? "",
       country,
       provider: "itunes",
-      userAgent: trimLogText(headerValueToString(req.headers["user-agent"]), 80),
+      userAgent: safeHeaderValue(req.headers["user-agent"], 80),
       ip: req.ip,
     });
     const result = await lookupViaLegacyApi(identifier, country, reqId);
@@ -644,14 +597,14 @@ router.get("/lookup", async (req: Request, res: Response) => {
       identifier: trimLogText(identifier),
       found: Boolean(result),
     });
-    logInfo(reqId, "/lookup completed", {
+    logInfo(SEARCH_LOG_SCOPE, reqId, "/lookup completed", {
       identifier: trimLogText(identifier),
       found: Boolean(result),
       durationMs: durationMs(routeStartedAt),
     });
     res.json(result);
   } catch (err) {
-    logError(reqId, "/lookup failed", {
+    logError(SEARCH_LOG_SCOPE, reqId, "/lookup failed", {
       message: safeErrorMessage(err),
       durationMs: durationMs(routeStartedAt),
       ...(config.searchDebug && err instanceof Error

@@ -50,6 +50,9 @@ export default function PackageDetail() {
     );
   }
 
+  // 闭包内类型固定为 DownloadTask，避免 TS 窄化在嵌套函数中丢失
+  const currentTask = task;
+
   const isActive = task.status === "downloading" || task.status === "injecting";
   const isPaused = task.status === "paused";
   const isCompleted = task.status === "completed";
@@ -77,16 +80,16 @@ export default function PackageDetail() {
 
     const urlToShare = installInfo.installUrl;
     console.info(`${LOG_PREFIX} share start`, {
-      taskId: task.id,
-      appId: task.software.id,
-      bundleID: task.software.bundleID,
+      taskId: currentTask.id,
+      appId: currentTask.software.id,
+      bundleID: currentTask.software.bundleID,
     });
 
     try {
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(urlToShare);
         console.info(`${LOG_PREFIX} share copied via clipboard API`, {
-          taskId: task.id,
+          taskId: currentTask.id,
         });
       } else {
         const textArea = document.createElement("textarea");
@@ -100,12 +103,12 @@ export default function PackageDetail() {
         document.execCommand("copy");
         document.body.removeChild(textArea);
         console.info(`${LOG_PREFIX} share copied via execCommand`, {
-          taskId: task.id,
+          taskId: currentTask.id,
         });
       }
     } catch (err) {
       console.warn(`${LOG_PREFIX} share copy failed`, {
-        taskId: task.id,
+        taskId: currentTask.id,
         message: err instanceof Error ? err.message : String(err),
       });
     }
@@ -120,13 +123,13 @@ export default function PackageDetail() {
       try {
         await navigator.share({ text: urlToShare });
         console.info(`${LOG_PREFIX} native share completed`, {
-          taskId: task.id,
+          taskId: currentTask.id,
         });
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError")
           return;
         console.warn(`${LOG_PREFIX} native share failed`, {
-          taskId: task.id,
+          taskId: currentTask.id,
           message: error instanceof Error ? error.message : String(error),
         });
       }
@@ -212,13 +215,13 @@ export default function PackageDetail() {
   async function handleDownloadIpa() {
     toastAction("toast.title.downloadIpaStarted");
     console.info(`${LOG_PREFIX} ipa download start`, {
-      taskId: task.id,
-      appId: task.software.id,
-      bundleID: task.software.bundleID,
+      taskId: currentTask.id,
+      appId: currentTask.software.id,
+      bundleID: currentTask.software.bundleID,
     });
     try {
       const res = await fetch(
-        `/api/packages/${task.id}/file?accountHash=${encodeURIComponent(task.accountHash)}`,
+        `/api/packages/${currentTask.id}/file?accountHash=${encodeURIComponent(currentTask.accountHash)}`,
         { headers: authHeaders() },
       );
       if (!res.ok) throw new Error("Download failed");
@@ -226,19 +229,19 @@ export default function PackageDetail() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${task.software.name}_${task.software.version}.ipa`;
+      a.download = `${currentTask.software.name}_${currentTask.software.version}.ipa`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
       console.info(`${LOG_PREFIX} ipa download completed`, {
-        taskId: task.id,
+        taskId: currentTask.id,
         status: res.status,
         sizeBytes: blob.size,
       });
     } catch (error) {
       console.error(`${LOG_PREFIX} ipa download failed`, {
-        taskId: task.id,
+        taskId: currentTask.id,
         message: error instanceof Error ? error.message : String(error),
       });
       addToast(t("downloads.package.downloadFailed"), "error");

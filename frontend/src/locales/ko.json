@@ -454,6 +454,9 @@
     "msgFailed": "{{appName}}\n{{userName}} / {{appleId}} - {{country}}\n\n오류: {{error}}",
     "downloadLimit": {
       "message": "{{appName}}\n앱 크기 {{size}} MB가 서버 제한 {{limit}} MB를 초과했습니다.\n관리자에게 문의하거나 자체 인스턴스를 배포하여 다시 시도하십시오."
-    }
+    },
+    "unknownAccount": "알 수 없음",
+    "unknownError": "알 수 없는 오류",
+    "close": "알림 닫기"
   }
 }

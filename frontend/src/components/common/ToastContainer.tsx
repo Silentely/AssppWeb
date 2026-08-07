@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { useToastStore, type ToastType } from "../../store/toast";
 
 const iconBg: Record<ToastType, string> = {
@@ -63,6 +64,7 @@ const icons: Record<ToastType, ReactNode> = {
 
 export default function ToastContainer() {
   const { toasts, removeToast } = useToastStore();
+  const { t } = useTranslation();
 
   return (
     <>
@@ -116,7 +118,7 @@ export default function ToastContainer() {
               <button
                 onClick={() => removeToast(toast.id)}
                 className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors flex-shrink-0"
-                aria-label="Close notification"
+                aria-label={t("toast.close")}
               >
                 <svg
                   className="w-4 h-4"

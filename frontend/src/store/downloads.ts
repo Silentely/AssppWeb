@@ -21,6 +21,42 @@ interface DownloadsState {
 
 let pollInterval: ReturnType<typeof setInterval> | null = null;
 
+function hasActiveTasks(tasks: DownloadTask[]): boolean {
+  return tasks.some(
+    (t) =>
+      t.status === "downloading" ||
+      t.status === "pending" ||
+      t.status === "injecting",
+  );
+}
+
+function stopPolling() {
+  if (pollInterval) {
+    clearInterval(pollInterval);
+    pollInterval = null;
+  }
+}
+
+function startPolling() {
+  if (pollInterval) return;
+  pollInterval = setInterval(() => {
+    useDownloadsStore.getState().fetchTasks();
+  }, 2000);
+}
+
+// 页面切到后台时暂停轮询，回到前台时立即恢复一次，避免隐藏标签页空转请求
+if (typeof document !== "undefined") {
+  document.addEventListener("visibilitychange", () => {
+    const state = useDownloadsStore.getState();
+    if (document.hidden) {
+      stopPolling();
+    } else if (hasActiveTasks(state.tasks)) {
+      startPolling();
+      state.fetchTasks();
+    }
+  });
+}
+
 export const useDownloadsStore = create<DownloadsState>((set, get) => ({
   tasks: [],
   loading: false,
@@ -29,25 +65,19 @@ export const useDownloadsStore = create<DownloadsState>((set, get) => ({
   setAccountHashes: (hashes) => set({ accountHashes: hashes }),
 
   fetchTasks: async () => {
-    const { accountHashes } = get();
-    set({ loading: true });
+    const { accountHashes, tasks } = get();
+    // 仅在列表为空时展示全屏 loading，避免轮询刷新时列表闪烁
+    if (tasks.length === 0) {
+      set({ loading: true });
+    }
     try {
-      const tasks = await downloadsApi.fetchDownloads(accountHashes);
-      set({ tasks, loading: false });
+      const fetchedTasks = await downloadsApi.fetchDownloads(accountHashes);
+      set({ tasks: fetchedTasks, loading: false });
 
-      const hasActive = tasks.some(
-        (t) =>
-          t.status === "downloading" ||
-          t.status === "pending" ||
-          t.status === "injecting",
-      );
-      if (hasActive && !pollInterval) {
-        pollInterval = setInterval(() => {
-          get().fetchTasks();
-        }, 2000);
-      } else if (!hasActive && pollInterval) {
-        clearInterval(pollInterval);
-        pollInterval = null;
+      if (hasActiveTasks(fetchedTasks)) {
+        startPolling();
+      } else {
+        stopPolling();
       }
     } catch {
       set({ loading: false });

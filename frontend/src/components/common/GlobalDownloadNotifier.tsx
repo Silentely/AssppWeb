@@ -63,7 +63,7 @@ export default function GlobalDownloadNotifier() {
           t("toast.msgFailed", {
             appName,
             ...ctx,
-            error: task.error || "Unknown error",
+            error: task.error || t("toast.unknownError"),
           }),
           "error",
           t("toast.title.downloadFailed"),

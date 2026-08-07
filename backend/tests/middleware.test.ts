@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { httpsRedirect } from "../src/middleware/httpsRedirect.js";
+import { errorHandler } from "../src/middleware/errorHandler.js";
 import { config } from "../src/config.js";
 import type { Request, Response, NextFunction } from "express";
 
@@ -122,5 +123,35 @@ describe("httpsRedirect middleware", () => {
 
     // Should use host header, not x-forwarded-host, to prevent open redirects
     expect(redirectUrl).toBe("https://internal.host/path");
+  });
+});
+
+describe("errorHandler middleware", () => {
+  it("should respond 500 with generic message and log structured error", () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const req = { method: "GET", originalUrl: "/api/boom" } as unknown as Request;
+    const res = {
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn().mockReturnThis(),
+      locals: { requestId: "test-request-123" },
+    } as unknown as Response;
+    const next: NextFunction = () => {};
+
+    errorHandler(new Error("boom detail"), req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(res.json).toHaveBeenCalledWith({ error: "Internal server error" });
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringMatching(
+        /^\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\] \[ErrorHandler\] \[test-request-123\] unhandled error$/,
+      ),
+      expect.objectContaining({
+        method: "GET",
+        path: "/api/boom",
+        message: "boom detail",
+        stack: expect.stringContaining("Error: boom detail"),
+      }),
+    );
+    errorSpy.mockRestore();
   });
 });

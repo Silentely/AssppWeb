@@ -120,7 +120,9 @@ export function runTimeCleanup() {
   }
 
   for (const id of expiredIds) {
-    console.log(`[Cleanup] Deleting expired task: ${id}`);
+    logInfo(LOG_SCOPE, `cleanup:${id}`, "deleting expired task", {
+      reason: "time-based",
+    });
     deleteTask(id);
   }
 }
@@ -154,7 +156,10 @@ export function runSpaceCleanup() {
 
   fileTasks.sort((a, b) => a.mtimeMs - b.mtimeMs);
   for (const ft of fileTasks) {
-    console.log(`[Cleanup] Space limit exceeded, deleting task: ${ft.id}`);
+    logInfo(LOG_SCOPE, `cleanup:${ft.id}`, "deleting task to free space", {
+      reason: "space-based",
+      fileSizeBytes: ft.size,
+    });
     deleteTask(ft.id);
     totalBytes -= ft.size;
     if (totalBytes <= maxBytes) break;

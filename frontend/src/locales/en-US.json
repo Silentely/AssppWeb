@@ -454,6 +454,9 @@
     "msgFailed": "{{appName}}\n{{userName}} / {{appleId}} - {{country}}\n\nError: {{error}}",
     "downloadLimit": {
       "message": "{{appName}}\nApp size {{size}} MB exceeds the server limit of {{limit}} MB.\nPlease contact the administrator or deploy your own instance."
-    }
+    },
+    "unknownAccount": "Unknown",
+    "unknownError": "Unknown error",
+    "close": "Close notification"
   }
 }

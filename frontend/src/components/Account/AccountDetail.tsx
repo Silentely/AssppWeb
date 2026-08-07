@@ -151,6 +151,7 @@ export default function AccountDetail() {
                 inputMode="numeric"
                 pattern="[0-9]*"
                 maxLength={6}
+                autoComplete="one-time-code"
                 value={reauthCode}
                 onChange={(e) => setReauthCode(e.target.value)}
                 disabled={reauthing}

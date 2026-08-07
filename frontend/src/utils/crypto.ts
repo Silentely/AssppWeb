@@ -24,10 +24,12 @@ async function deriveKey(
   passwordKey: CryptoKey,
   salt: Uint8Array,
 ): Promise<CryptoKey> {
+  // 复制为独立的 ArrayBuffer，兼容 TS 5.7 收紧后的 BufferSource 类型
+  const saltBuffer = salt.slice().buffer;
   return await crypto.subtle.deriveKey(
     {
       name: "PBKDF2",
-      salt: salt,
+      salt: saltBuffer,
       iterations: ITERATIONS,
       hash: "SHA-256",
     },

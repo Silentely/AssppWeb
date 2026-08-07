@@ -454,6 +454,9 @@
     "msgFailed": "{{appName}}\n{{userName}} / {{appleId}} - {{country}}\n\nОшибка: {{error}}",
     "downloadLimit": {
       "message": "{{appName}}\nРазмер приложения {{size}} МБ превышает лимит сервера {{limit}} МБ.\nПожалуйста, свяжитесь с администратором или разверните свой собственный сервер."
-    }
+    },
+    "unknownAccount": "Неизвестно",
+    "unknownError": "Неизвестная ошибка",
+    "close": "Закрыть уведомление"
   }
 }

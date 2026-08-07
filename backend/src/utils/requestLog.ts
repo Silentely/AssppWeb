@@ -7,7 +7,7 @@ function write(
   message: string,
   meta?: Record<string, unknown>,
 ): void {
-  const line = `[${scope}] [${requestId}] ${message}`;
+  const line = `[${new Date().toISOString()}] [${scope}] [${requestId}] ${message}`;
   if (level === "warn") {
     if (meta) {
       console.warn(line, meta);

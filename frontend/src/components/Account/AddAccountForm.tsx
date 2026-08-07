@@ -69,7 +69,8 @@ export default function AddAccountForm() {
               </label>
               <input
                 id="email"
-                type="text"
+                type="email"
+                autoComplete="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -89,6 +90,7 @@ export default function AddAccountForm() {
               <input
                 id="password"
                 type="password"
+                autoComplete="current-password"
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -108,6 +110,7 @@ export default function AddAccountForm() {
                 <input
                   id="deviceId"
                   type="text"
+                  autoComplete="off"
                   required
                   value={deviceId}
                   onChange={(e) => setDeviceId(e.target.value)}
@@ -142,6 +145,7 @@ export default function AddAccountForm() {
                   inputMode="numeric"
                   pattern="[0-9]*"
                   maxLength={6}
+                  autoComplete="one-time-code"
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
                   disabled={loading}
