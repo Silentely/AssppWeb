@@ -30,7 +30,7 @@ export default function Badge({ status }: BadgeProps) {
     <span
       className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${styles[status]}`}
     >
-      {/* Dynamic lookup matching the JSON structure "downloads.status.xxx" */}
+      {/* 动态查找与 JSON 结构 "downloads.status.xxx" 对应的文案 */}
       {t(`downloads.status.${status}`)}
     </span>
   );

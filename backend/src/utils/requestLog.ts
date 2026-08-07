@@ -1,5 +1,11 @@
 import type { Response } from "express";
 
+const CONSOLE_METHOD: Record<string, "log" | "warn" | "error"> = {
+  info: "log",
+  warn: "warn",
+  error: "error",
+};
+
 function write(
   level: "info" | "warn" | "error",
   scope: string,
@@ -8,27 +14,12 @@ function write(
   meta?: Record<string, unknown>,
 ): void {
   const line = `[${new Date().toISOString()}] [${scope}] [${requestId}] ${message}`;
-  if (level === "warn") {
-    if (meta) {
-      console.warn(line, meta);
-      return;
-    }
-    console.warn(line);
-    return;
-  }
-  if (level === "error") {
-    if (meta) {
-      console.error(line, meta);
-      return;
-    }
-    console.error(line);
-    return;
-  }
+  const method = CONSOLE_METHOD[level];
   if (meta) {
-    console.log(line, meta);
+    console[method](line, meta);
     return;
   }
-  console.log(line);
+  console[method](line);
 }
 
 export function getRequestId(res: Response): string {
@@ -66,12 +57,13 @@ export function logError(
   write("error", scope, requestId, message, meta);
 }
 
+// 账号哈希应视为敏感标识：过短的值直接整体掩码，正常值保留首尾便于关联日志
 export function maskAccountHash(value: string): string {
   if (!value) {
     return "";
   }
-  if (value.length <= 12) {
-    return value;
+  if (value.length < 12) {
+    return "****";
   }
   return `${value.slice(0, 6)}...${value.slice(-4)}`;
 }

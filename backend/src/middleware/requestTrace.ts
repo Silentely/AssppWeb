@@ -17,7 +17,7 @@ function normalizeRequestId(raw: unknown): string | null {
   if (!value) {
     return null;
   }
-  // Keep request IDs header-safe and reasonably bounded.
+  // 限制请求 ID 为响应头安全字符集与合理长度
   if (!/^[a-zA-Z0-9._:-]{8,128}$/.test(value)) {
     return null;
   }
@@ -33,17 +33,14 @@ export function requestTrace(req: Request, res: Response, next: NextFunction) {
   res.locals.requestId = requestId;
   res.setHeader("X-Request-Id", requestId);
 
-  logInfo(TRACE_SCOPE, requestId, "request start", {
-    method: req.method,
-    path: req.originalUrl || req.url,
-    ip: req.ip,
-    userAgent: safeHeaderValue(req.headers["user-agent"], 120),
-  });
-
+  // 每个请求只输出一行完成日志（含全部元数据），
+  // 相比 start/finish 双行可显著降低高频轮询接口的日志量。
   res.on("finish", () => {
-    logInfo(TRACE_SCOPE, requestId, "request finish", {
+    logInfo(TRACE_SCOPE, requestId, "request", {
       method: req.method,
       path: req.originalUrl || req.url,
+      ip: req.ip,
+      userAgent: safeHeaderValue(req.headers["user-agent"], 120),
       statusCode: res.statusCode,
       durationMs: durationMs(startedAt),
     });

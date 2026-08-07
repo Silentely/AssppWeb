@@ -1,11 +1,11 @@
 /**
- * Compare two dot-separated version strings numerically.
- * Missing segments are treated as 0 (e.g., "5" == "5.0" == "5.0.0").
+ * 按点分段的版本号做数值比较。
+ * 缺失的段按 0 处理（例如 "5" == "5.0" == "5.0.0"）。
  *
- * Returns:
- *   positive if a > b
- *   negative if a < b
- *   0        if a == b
+ * 返回值：
+ *   a > b 时为正数
+ *   a < b 时为负数
+ *   a == b 时为 0
  */
 export function compareVersions(a: string, b: string): number {
   const partsA = a.split(".").map((s) => parseInt(s, 10) || 0);
@@ -20,7 +20,7 @@ export function compareVersions(a: string, b: string): number {
   return 0;
 }
 
-/** Returns true when `latest` is strictly newer than `current`. */
+/** 当 latest 严格新于 current 时返回 true。 */
 export function isNewerVersion(latest: string, current: string): boolean {
   return compareVersions(latest, current) > 0;
 }

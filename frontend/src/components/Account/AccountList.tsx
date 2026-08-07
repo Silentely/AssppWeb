@@ -31,7 +31,7 @@ export default function AccountList() {
           {t("accounts.loading")}
         </div>
       ) : accounts.length === 0 ? (
-        /* Removed transition-colors to prevent dark mode flashing */
+        /* 静态空状态容器不使用过渡动画，避免暗色模式加载时闪烁 */
         <div className="flex flex-col items-center justify-center py-16 px-4 my-4 bg-gray-50 dark:bg-gray-900/30 border-2 border-dashed border-gray-200 dark:border-gray-800 rounded-2xl">
           <div className="bg-white dark:bg-gray-800 p-4 rounded-full shadow-sm mb-4 border border-gray-100 dark:border-gray-700">
             <UsersIcon className="w-12 h-12 text-blue-500 dark:text-blue-400" />

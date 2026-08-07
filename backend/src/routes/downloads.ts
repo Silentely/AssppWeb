@@ -128,12 +128,12 @@ async function fetchDownloadSizeBytes(
     try {
       await rangeResponse.body?.cancel();
     } catch {
-      // best-effort cleanup
+      // 尽力清理
     }
   }
 }
 
-// Start a new download
+// 新建下载
 router.post("/downloads", async (req: Request, res: Response) => {
   const reqId = getRequestId(res);
   const startedAt = Date.now();
@@ -166,7 +166,7 @@ router.post("/downloads", async (req: Request, res: Response) => {
     return;
   }
 
-  // Validate download URL before creating task
+  // 创建任务前校验下载 URL
   try {
     validateDownloadURL(downloadURL);
   } catch (err) {
@@ -239,7 +239,7 @@ router.post("/downloads", async (req: Request, res: Response) => {
   }
 });
 
-// List downloads filtered by account hashes
+// 按账号哈希过滤列出下载任务
 router.get("/downloads", (req: Request, res: Response) => {
   const reqId = getRequestId(res);
   const startedAt = Date.now();
@@ -270,7 +270,7 @@ router.get("/downloads", (req: Request, res: Response) => {
   res.json(filtered);
 });
 
-// Get single download (requires accountHash)
+// 获取单个下载（需 accountHash）
 router.get("/downloads/:id", (req: Request, res: Response) => {
   const reqId = getRequestId(res);
   const startedAt = Date.now();
@@ -313,7 +313,7 @@ router.get("/downloads/:id", (req: Request, res: Response) => {
   res.json(sanitizeTaskForResponse(task));
 });
 
-// SSE progress stream (requires accountHash)
+// SSE 进度流（需 accountHash）
 router.get("/downloads/:id/progress", (req: Request, res: Response) => {
   const reqId = getRequestId(res);
   const startedAt = Date.now();
@@ -353,7 +353,7 @@ router.get("/downloads/:id/progress", (req: Request, res: Response) => {
     Connection: "keep-alive",
   });
 
-  // Send current state immediately
+  // 立即发送当前状态
   res.write(`data: ${JSON.stringify(sanitizeTaskForResponse(task))}\n\n`);
   logInfo(LOG_SCOPE, reqId, "progress stream opened", {
     downloadId: id,
@@ -379,7 +379,7 @@ router.get("/downloads/:id/progress", (req: Request, res: Response) => {
   });
 });
 
-// Pause download (requires accountHash)
+// 暂停下载（需 accountHash）
 router.post("/downloads/:id/pause", (req: Request, res: Response) => {
   const reqId = getRequestId(res);
   const startedAt = Date.now();
@@ -432,7 +432,7 @@ router.post("/downloads/:id/pause", (req: Request, res: Response) => {
   res.json(updated ? sanitizeTaskForResponse(updated) : { success: true });
 });
 
-// Resume download (requires accountHash)
+// 恢复下载（需 accountHash）
 router.post("/downloads/:id/resume", (req: Request, res: Response) => {
   const reqId = getRequestId(res);
   const startedAt = Date.now();
@@ -485,7 +485,7 @@ router.post("/downloads/:id/resume", (req: Request, res: Response) => {
   res.json(updated ? sanitizeTaskForResponse(updated) : { success: true });
 });
 
-// Delete download (requires accountHash)
+// 删除下载（需 accountHash）
 router.delete("/downloads/:id", (req: Request, res: Response) => {
   const reqId = getRequestId(res);
   const startedAt = Date.now();

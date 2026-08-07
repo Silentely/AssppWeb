@@ -22,10 +22,10 @@ function maskGuid(guid: string): string {
   return `${guid.slice(0, 4)}...${guid.slice(-4)}`;
 }
 
-// Proxy for Apple's bag endpoint.
-// The bag response is public data (Apple service URLs, no credentials).
-// Proxied server-side because init.itunes.apple.com requires TLS 1.3,
-// which node-forge (browser-side TLS) does not support.
+// Apple bag 端点的代理。
+// bag 响应是公开数据（Apple 服务地址，不含任何凭据）。
+// 之所以在服务端代理，是因为 init.itunes.apple.com 要求 TLS 1.3，
+// 浏览器端 node-forge 无法支持。
 router.get("/bag", async (req: Request, res: Response) => {
   const reqId = getRequestId(res);
   const startedAt = Date.now();
@@ -38,7 +38,7 @@ router.get("/bag", async (req: Request, res: Response) => {
     return;
   }
 
-  // Validate guid format (should be hex string)
+  // 校验 guid 格式（应为十六进制字符串）
   if (!/^[a-fA-F0-9]+$/.test(guid)) {
     logWarn(LOG_SCOPE, reqId, "invalid guid format", {
       guid: maskGuid(guid),
@@ -112,14 +112,14 @@ router.get("/bag", async (req: Request, res: Response) => {
       });
     });
 
-    // Extract plist from XML wrapper
+    // 从 XML 包裹中提取 plist 片段
     const plistMatch = body.match(/<plist[\s\S]*<\/plist>/);
     if (!plistMatch) {
       res.status(502).json({ error: "No plist found in bag response" });
       return;
     }
 
-    // Return raw plist XML for the client to parse
+    // 原样返回 plist XML 供客户端解析
     res.type("text/xml").send(plistMatch[0]);
   } catch (err) {
     logError(LOG_SCOPE, reqId, "bag request failed", {

@@ -11,17 +11,27 @@ const tasks = new Map<string, DownloadTask>();
 const abortControllers = new Map<string, AbortController>();
 const chunkDownloaders = new Map<string, ChunkedDownloader>();
 const progressListeners = new Map<string, Set<(task: DownloadTask) => void>>();
+// 每个任务的全局下载超时定时器，暂停/删除/完成时必须同步清理，避免泄漏
+const taskTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
 const LOG_SCOPE = "DownloadManager";
 
 const PACKAGES_DIR = path.join(config.dataDir, "packages");
 const TASKS_FILE = path.join(config.dataDir, "tasks.json");
-// Legacy file from old code — cleaned up on startup
+// 旧版代码遗留文件，启动时清理
 const LEGACY_DOWNLOADS_FILE = path.join(config.dataDir, "downloads.json");
 
-// --- Security: path segment validation ---
+function clearTaskTimeout(id: string): void {
+  const timer = taskTimeouts.get(id);
+  if (timer) {
+    clearTimeout(timer);
+    taskTimeouts.delete(id);
+  }
+}
+
+// --- 安全：路径段校验 ---
 const SAFE_SEGMENT_RE = /^[a-zA-Z0-9._-]+$/;
 
-/** Validate and sanitize a path segment. Rejects traversal, replaces unsafe chars. */
+/** 校验并净化路径段：拒绝路径穿越，替换不安全字符。 */
 function safePathSegment(value: string, label: string): string {
   if (!value || value === "." || value === "..") {
     throw new Error(`Invalid ${label}`);
@@ -34,7 +44,7 @@ function safePathSegment(value: string, label: string): string {
   return cleaned;
 }
 
-// --- Security: download URL allowlist ---
+// --- 安全：下载 URL 白名单 ---
 const ALLOWED_DOWNLOAD_HOSTS_RE = /\.apple\.com$/i;
 
 export function validateDownloadURL(url: string): void {
@@ -61,7 +71,7 @@ export function validateDownloadURL(url: string): void {
   }
 }
 
-// --- Security: sanitize task for API responses ---
+// --- 安全：对外响应前清洗任务字段 ---
 export function sanitizeTaskForResponse(
   task: DownloadTask,
 ): Omit<
@@ -75,7 +85,7 @@ export function sanitizeTaskForResponse(
   };
 }
 
-// --- Persistence: save only completed task metadata (no secrets) ---
+// --- 持久化：仅保存已完成任务的元数据（不含机密） ---
 function persistTasks() {
   const completed = Array.from(tasks.values())
     .filter((t) => t.status === "completed" && t.filePath)
@@ -94,13 +104,13 @@ function persistTasks() {
   fs.writeFileSync(TASKS_FILE, JSON.stringify(completed, null, 2));
 }
 
-// Auto-cleanup: delete completed files older than configured days
+// 自动清理：删除超过配置天数的已完成文件
 export function runTimeCleanup() {
   const { autoCleanupDays } = config;
   if (autoCleanupDays <= 0) return;
   const cutoff = Date.now() - autoCleanupDays * 24 * 60 * 60 * 1000;
 
-  // Collect IDs first to avoid mutating the map during iteration
+  // 先收集待删 ID，避免遍历时修改 map
   const expiredIds: string[] = [];
   for (const task of tasks.values()) {
     if (
@@ -114,7 +124,7 @@ export function runTimeCleanup() {
           expiredIds.push(task.id);
         }
       } catch {
-        // File inaccessible — skip
+        // 文件不可访问——跳过
       }
     }
   }
@@ -127,7 +137,7 @@ export function runTimeCleanup() {
   }
 }
 
-// Auto-cleanup: evict oldest completed files when total size exceeds limit
+// 自动清理：总大小超限时淘汰最旧的已完成文件
 export function runSpaceCleanup() {
   const { autoCleanupMaxMB } = config;
   if (autoCleanupMaxMB <= 0) return;
@@ -147,7 +157,7 @@ export function runSpaceCleanup() {
         totalBytes += stat.size;
         fileTasks.push({ id: task.id, size: stat.size, mtimeMs: stat.mtimeMs });
       } catch {
-        // File inaccessible — skip
+        // 文件不可访问——跳过
       }
     }
   }
@@ -166,7 +176,7 @@ export function runSpaceCleanup() {
   }
 }
 
-// Schedule daily time-based cleanup at midnight (self-correcting to avoid drift)
+// 每日零点定时清理（自校正避免漂移）
 function scheduleDailyCleanup() {
   function msUntilMidnight(): number {
     const now = new Date();
@@ -190,21 +200,21 @@ function scheduleDailyCleanup() {
 }
 
 function initOnStartup() {
-  // Remove legacy downloads.json from old code
+  // 移除旧版代码遗留的 downloads.json
   if (fs.existsSync(LEGACY_DOWNLOADS_FILE)) {
     fs.unlinkSync(LEGACY_DOWNLOADS_FILE);
   }
 
-  // Ensure packages dir exists
+  // 确保 packages 目录存在
   fs.mkdirSync(PACKAGES_DIR, { recursive: true });
 
-  // Load completed tasks from previous run
+  // 从上次运行恢复已完成任务
   if (fs.existsSync(TASKS_FILE)) {
     try {
       const data = JSON.parse(fs.readFileSync(TASKS_FILE, "utf-8"));
       if (Array.isArray(data)) {
         for (const item of data) {
-          // Only restore completed tasks whose IPA file still exists
+          // 仅恢复 IPA 文件仍然存在的已完成任务
           if (
             item.id &&
             item.status === "completed" &&
@@ -228,14 +238,14 @@ function initOnStartup() {
         }
       }
     } catch {
-      // Corrupted file — start fresh
+      // 文件损坏——从空状态开始
     }
   }
 
-  // Clean up orphaned temp chunk files (.ipa.partN)
+  // 清理孤儿分块临时文件（.ipa.partN）
   cleanOrphanedTempChunks();
 
-  // Run time-based cleanup once on startup, then schedule daily
+  // 启动时先执行一次时间清理，再安排每日任务
   runTimeCleanup();
   scheduleDailyCleanup();
 }
@@ -257,7 +267,7 @@ function cleanOrphanedTempChunks() {
       const fullPath = path.join(dir, entry.name);
       if (entry.isDirectory()) {
         walkAndClean(fullPath);
-        // Remove empty directories
+        // 清理空目录
         if (fs.readdirSync(fullPath).length === 0) {
           fs.rmdirSync(fullPath);
         }
@@ -266,7 +276,7 @@ function cleanOrphanedTempChunks() {
         !knownPaths.has(path.resolve(fullPath)) &&
         /\.ipa\.part\d+$/.test(entry.name)
       ) {
-        // Remove leftover chunk temp files, but keep orphaned .ipa files.
+        // 删除遗留的分块临时文件，但保留孤立的 .ipa 成品
         fs.unlinkSync(fullPath);
       }
     }
@@ -275,7 +285,7 @@ function cleanOrphanedTempChunks() {
   walkAndClean(packagesBase);
 }
 
-// Initialize on startup
+// 启动时初始化
 initOnStartup();
 
 function notifyProgress(task: DownloadTask) {
@@ -329,7 +339,8 @@ export function deleteTask(id: string): boolean {
     hasFilePath: Boolean(task.filePath),
   });
 
-  // Abort if downloading
+  // 下载中则中止并清理关联资源与超时定时器
+  clearTaskTimeout(id);
   const controller = abortControllers.get(id);
   if (controller) {
     controller.abort();
@@ -341,7 +352,7 @@ export function deleteTask(id: string): boolean {
     chunkDownloaders.delete(id);
   }
 
-  // Remove file if exists, with path safety check
+  // 文件存在则删除（带路径安全检查）
   if (task.filePath) {
     const resolved = path.resolve(task.filePath);
     const packagesBase = path.resolve(PACKAGES_DIR);
@@ -351,7 +362,7 @@ export function deleteTask(id: string): boolean {
     ) {
       fs.unlinkSync(resolved);
 
-      // Clean up empty parent directories
+      // 清理空的父目录
       let dir = path.dirname(resolved);
       while (dir !== packagesBase && dir.startsWith(packagesBase)) {
         const contents = fs.readdirSync(dir);
@@ -378,6 +389,8 @@ export function pauseTask(id: string): boolean {
 
   logInfo(LOG_SCOPE, `task:${id}`, "pause task requested");
 
+  // 暂停时同步清理超时定时器，避免残留定时器在后台空转
+  clearTaskTimeout(id);
   const controller = abortControllers.get(id);
   if (controller) {
     controller.abort();
@@ -411,10 +424,10 @@ export function createTask(
   sinfs: Sinf[],
   iTunesMetadata?: string,
 ): DownloadTask {
-  // Validate download URL
+  // 校验下载 URL
   validateDownloadURL(downloadURL);
 
-  // Validate path segments
+  // 校验路径段
   safePathSegment(accountHash, "accountHash");
   safePathSegment(software.bundleID, "bundleID");
   safePathSegment(software.version, "version");
@@ -450,15 +463,16 @@ async function startDownload(task: DownloadTask) {
     version: task.software.version,
   });
 
-  // Pre-download cleanup: expire old files + enforce space limit
+  // 下载前清理：过期文件 + 空间上限
   runTimeCleanup();
   runSpaceCleanup();
 
   const controller = new AbortController();
   abortControllers.set(task.id, controller);
 
-  // Set a global timeout for the entire download
+  // 为整个下载设置全局超时，并登记以便暂停/删除时清理
   const timeout = setTimeout(() => controller.abort(), DOWNLOAD_TIMEOUT_MS);
+  taskTimeouts.set(task.id, timeout);
 
   task.status = "downloading";
   task.progress = 0;
@@ -466,7 +480,7 @@ async function startDownload(task: DownloadTask) {
   task.error = undefined;
   notifyProgress(task);
 
-  // Sanitize path segments
+  // 净化路径段
   const safeAccountHash = safePathSegment(task.accountHash, "accountHash");
   const safeBundleID = safePathSegment(task.software.bundleID, "bundleID");
   const safeVersion = safePathSegment(task.software.version, "version");
@@ -478,13 +492,13 @@ async function startDownload(task: DownloadTask) {
     safeVersion,
   );
 
-  // Verify the resolved path is within PACKAGES_DIR
+  // 确认解析后的路径仍在 PACKAGES_DIR 内
   const resolvedDir = path.resolve(dir);
   const packagesBase = path.resolve(PACKAGES_DIR);
   if (!resolvedDir.startsWith(packagesBase + path.sep)) {
+    clearTaskTimeout(task.id);
     task.status = "failed";
     task.error = "Invalid path";
-    clearTimeout(timeout);
     notifyProgress(task);
     logWarn(LOG_SCOPE, traceId, "download failed due to invalid path");
     return;
@@ -496,7 +510,7 @@ async function startDownload(task: DownloadTask) {
   task.filePath = filePath;
 
   try {
-    // Re-validate download URL before fetching
+    // 拉取前再次校验下载 URL
     validateDownloadURL(task.downloadURL);
 
     const downloader = new ChunkedDownloader(task.downloadURL, filePath, {
@@ -515,9 +529,9 @@ async function startDownload(task: DownloadTask) {
 
     chunkDownloaders.delete(task.id);
     abortControllers.delete(task.id);
-    clearTimeout(timeout);
+    clearTaskTimeout(task.id);
 
-    // Inject sinfs
+    // 注入 sinf 签名
     if (task.sinfs.length > 0) {
       task.status = "injecting";
       task.progress = 100;
@@ -533,12 +547,12 @@ async function startDownload(task: DownloadTask) {
     task.status = "completed";
     task.progress = 100;
 
-    // Strip sensitive data after successful compile
+    // 编译成功后清除敏感数据
     task.downloadURL = "";
     task.sinfs = [];
     task.iTunesMetadata = undefined;
 
-    // Persist completed task metadata (no secrets)
+    // 持久化已完成任务元数据（不含机密）
     persistTasks();
     notifyProgress(task);
     logInfo(LOG_SCOPE, traceId, "download task completed", {
@@ -548,10 +562,15 @@ async function startDownload(task: DownloadTask) {
   } catch (err) {
     chunkDownloaders.delete(task.id);
     abortControllers.delete(task.id);
-    clearTimeout(timeout);
+    clearTaskTimeout(task.id);
+
+    // 任务已被 deleteTask() 移除时，仅清理资源，不再回写状态
+    if (tasks.get(task.id) !== task) {
+      return;
+    }
 
     if (err instanceof Error && err.name === "AbortError") {
-      // Status may have been changed to "paused" externally by pauseTask()
+      // 状态可能已被 pauseTask() 在外部改为 paused
       if ((task.status as string) === "paused") {
         logInfo(LOG_SCOPE, traceId, "download aborted due to pause request");
         return;

@@ -105,7 +105,7 @@ export async function getDownloadInfo(
               failureType,
             );
           }
-          // If apple provides a specific string, we fall back to it, otherwise we use the localized default.
+          // Apple 未提供具体错误信息时，回退到本地化的默认文案
           throw new DownloadError(
             customerMessage ??
               i18n.t("errors.download.downloadFailed", { failureType }),
@@ -163,7 +163,7 @@ export async function getDownloadInfo(
       throw new DownloadError(i18n.t("errors.download.noSinf"));
     }
 
-    // Build iTunesMetadata plist
+    // 构建 iTunesMetadata plist，注入账号信息并剔除口令类字段
     const metadataDict: Record<string, any> = { ...metadata };
     metadataDict["apple-id"] = account.email;
     metadataDict["userName"] = account.email;

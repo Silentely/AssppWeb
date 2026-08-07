@@ -33,7 +33,6 @@ export default function DownloadItem({
           size="sm"
         />
         <div className="flex-1 min-w-0">
-          {/* Added gap-3 and items-start to prevent layout shifting, set title container to flex-1 min-w-0 */}
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
               <Link
@@ -46,7 +45,6 @@ export default function DownloadItem({
                 v{task.software.version}
               </p>
             </div>
-            {/* Wrapped Badge with shrink-0 and whitespace-nowrap to prevent squeezing and text wrapping */}
             <div className="shrink-0 whitespace-nowrap flex items-center h-5 mt-0.5">
               <Badge status={task.status} />
             </div>
@@ -68,7 +66,7 @@ export default function DownloadItem({
             </p>
           )}
 
-          {/* Redesigned action buttons with borders, padding, rounded corners, and shadow */}
+          {/* 操作按钮统一采用描边样式，与页面其他次级按钮保持一致 */}
           <div className="flex flex-wrap gap-2 mt-3">
             {isActive && (
               <button

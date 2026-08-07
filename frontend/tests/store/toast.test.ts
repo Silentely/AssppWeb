@@ -44,6 +44,33 @@ describe("toast store", () => {
     expect(useToastStore.getState().toasts).toHaveLength(0);
   });
 
+  it("keeps error toasts visible longer than info toasts", () => {
+    const { addToast } = useToastStore.getState();
+    addToast("an error", "error");
+    addToast("an info", "info");
+    // 5 秒后 info 过期，error 仍在
+    vi.advanceTimersByTime(5001);
+    const remaining = useToastStore.getState().toasts.map((t) => t.message);
+    expect(remaining).toEqual(["an error"]);
+    // 再等 3 秒，error 也过期
+    vi.advanceTimersByTime(3001);
+    expect(useToastStore.getState().toasts).toHaveLength(0);
+  });
+
+  it("re-adding the same toast extends its lifetime instead of stacking", () => {
+    const { addToast } = useToastStore.getState();
+    addToast("same", "info");
+    vi.advanceTimersByTime(4000);
+    addToast("same", "info");
+    // 已过 4 秒，重新加入后计时重置，累计 8 秒时仍在
+    vi.advanceTimersByTime(4000);
+    const toasts = useToastStore.getState().toasts;
+    expect(toasts).toHaveLength(1);
+    expect(toasts[0].message).toBe("same");
+    vi.advanceTimersByTime(1001);
+    expect(useToastStore.getState().toasts).toHaveLength(0);
+  });
+
   it("removes a toast manually by id", () => {
     const { addToast, removeToast } = useToastStore.getState();
     addToast("bye", "info");

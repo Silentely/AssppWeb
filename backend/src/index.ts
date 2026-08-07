@@ -18,11 +18,11 @@ import bagRoutes from "./routes/bag.js";
 
 const app = express();
 
-// Middleware
+// 中间件
 app.use(httpsRedirect);
 app.use(express.json({ limit: "50mb" }));
 
-// API routes
+// API 路由
 app.use("/api", requestTrace);
 app.use("/api", accessAuth);
 app.use("/api", authRoutes);
@@ -33,7 +33,7 @@ app.use("/api", installRoutes);
 app.use("/api", settingsRoutes);
 app.use("/api", bagRoutes);
 
-// Serve static frontend files
+// 托管前端静态文件
 const publicDir = path.resolve(import.meta.dirname, "../public");
 function setNoStoreForHtml(res: express.Response, filePath: string) {
   if (path.extname(filePath) === ".html") {
@@ -47,7 +47,7 @@ app.use(
   }),
 );
 
-// SPA fallback: serve index.html for non-API routes
+// SPA 兜底：非 API 路由一律返回 index.html
 app.get("*", (req, res, next) => {
   if (req.path.startsWith("/api")) {
     return next();
@@ -61,16 +61,16 @@ app.get("*", (req, res, next) => {
   }
 });
 
-// Error handler (must be last)
+// 错误处理中间件（必须最后注册）
 app.use(errorHandler);
 
-// Create HTTP server
+// 创建 HTTP 服务器
 const server = createServer(app);
 
-// WebSocket proxy for Apple TCP connections
+// Apple TCP 连接的 WebSocket 代理
 setupWsProxy(server);
 
-// Ensure data directory exists
+// 确保数据目录存在
 fs.mkdirSync(config.dataDir, { recursive: true });
 
 server.listen(config.port, () => {

@@ -19,18 +19,18 @@ export function getBaseUrl(req: Request): string {
   const configured = normalizeBaseUrl(config.publicBaseUrl);
   if (configured) return configured;
 
-  // Trust x-forwarded-proto for protocol (safe — only affects URL scheme)
-  // but use host header directly (not x-forwarded-host) to prevent open redirects
+  // 信任 x-forwarded-proto 判断协议（安全，仅影响 URL scheme），
+  // 但直接使用 host 头（而非 x-forwarded-host）防止开放重定向
   const forwardedProto = req.headers["x-forwarded-proto"];
   const proto = forwardedProto === "https" || req.secure ? "https" : "http";
   const host = req.headers["host"] || "localhost";
 
-  // Validate host header to prevent injection
+  // 校验 host 头防止注入
   const sanitizedHost = host.replace(/[^\w.\-:]/g, "");
 
-  // Support X-Forwarded-Port for reverse proxies that strip port from Host header.
-  // Common when deploying HTTPS on non-443 ports (e.g., nginx with $host instead of $http_host).
-  // Without this, manifest plist URLs default to port 443 and iOS cannot fetch the payload.
+  // 支持 X-Forwarded-Port：反向代理剥离 Host 头端口时使用。
+  // 常见于非 443 端口部署 HTTPS（如 nginx 配置 $host 而非 $http_host）。
+  // 若不处理，manifest plist 的 URL 会默认落到 443 端口，iOS 将无法拉取 payload。
   if (!sanitizedHost.includes(":")) {
     const forwardedPort = req.headers["x-forwarded-port"];
     if (typeof forwardedPort === "string") {
@@ -58,7 +58,7 @@ function joinUrl(baseUrl: string, path: string): string {
   return `${base}/${suffix}`;
 }
 
-// Manifest plist for iTMS installation
+// iTMS 安装用的 manifest plist
 router.get("/install/:id/manifest.plist", (req: Request, res: Response) => {
   const reqId = getRequestId(res);
   const startedAt = Date.now();
@@ -131,7 +131,7 @@ router.get("/install/:id/url", (req: Request, res: Response) => {
   res.json({ installUrl, manifestUrl });
 });
 
-// Stream IPA payload for installation
+// 流式返回 IPA payload 供安装
 router.get("/install/:id/payload.ipa", (req: Request, res: Response) => {
   const reqId = getRequestId(res);
   const startedAt = Date.now();
@@ -150,7 +150,7 @@ router.get("/install/:id/payload.ipa", (req: Request, res: Response) => {
     return;
   }
 
-  // Verify file path is within packages directory
+  // 确认文件路径位于 packages 目录内
   const packagesBase = path.resolve(path.join(config.dataDir, "packages"));
   const resolvedPath = path.resolve(task.filePath);
   if (!resolvedPath.startsWith(packagesBase + path.sep)) {
@@ -180,7 +180,7 @@ router.get("/install/:id/payload.ipa", (req: Request, res: Response) => {
   stream.pipe(res);
 });
 
-// Small icon placeholder (57x57)
+// 小尺寸图标占位图（57x57）
 router.get("/install/:id/icon-small.png", (_req: Request, res: Response) => {
   const png = getWhitePng();
   res.setHeader("Content-Type", "image/png");
@@ -188,7 +188,7 @@ router.get("/install/:id/icon-small.png", (_req: Request, res: Response) => {
   res.send(png);
 });
 
-// Large icon placeholder (512x512)
+// 大尺寸图标占位图（512x512）
 router.get("/install/:id/icon-large.png", (_req: Request, res: Response) => {
   const png = getWhitePng();
   res.setHeader("Content-Type", "image/png");

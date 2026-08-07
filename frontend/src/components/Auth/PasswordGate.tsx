@@ -35,7 +35,7 @@ export default function PasswordGate({ children }: { children: ReactNode }) {
 
         const storedToken = sessionStorage.getItem(SESSION_KEY);
         if (storedToken) {
-          // Validate stored token — it may be stale after a password change
+          // 校验存储的令牌——口令变更后令牌可能已失效
           try {
             const res = await fetch("/api/auth/verify", {
               method: "POST",
@@ -48,7 +48,7 @@ export default function PasswordGate({ children }: { children: ReactNode }) {
               return;
             }
           } catch {
-            // Validation failed — fall through to show password form
+            // 校验失败——继续展示口令表单
           }
           sessionStorage.removeItem(SESSION_KEY);
         }
@@ -56,7 +56,7 @@ export default function PasswordGate({ children }: { children: ReactNode }) {
         setStatus("required");
       })
       .catch(() => {
-        // If we can't reach the server, let the app load normally
+        // 无法连接服务器时放行，避免访问密码保护阻断正常浏览
         setStatus("verified");
       });
   }, []);

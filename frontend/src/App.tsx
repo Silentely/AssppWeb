@@ -35,10 +35,23 @@ function Loading() {
 
 export default function App() {
   const theme = useSettingsStore((s) => s.theme);
+  const { i18n } = useTranslation();
+
+  // 同步文档语言，确保屏幕阅读器与浏览器翻译插件使用正确语言
+  useEffect(() => {
+    window.document.documentElement.lang = i18n.language;
+  }, [i18n.language]);
 
   useEffect(() => {
     const root = window.document.documentElement;
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+
+    function updateThemeColor(color: string) {
+      const meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) {
+        meta.setAttribute("content", color);
+      }
+    }
 
     function applyTheme() {
       const isDark =
@@ -46,9 +59,12 @@ export default function App() {
       if (isDark) {
         root.classList.add("dark");
         root.style.colorScheme = "dark";
+        // 暗色下使用页面背景色，避免 PWA 顶栏与页面产生割裂感
+        updateThemeColor("#030712");
       } else {
         root.classList.remove("dark");
         root.style.colorScheme = "light";
+        updateThemeColor("#2563eb");
       }
     }
 

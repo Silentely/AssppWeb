@@ -86,7 +86,7 @@ export async function purchaseApp(
   try {
     return await purchaseWithParams(account, app, "STDQ");
   } catch (e) {
-    // Rely on error code instead of translated message string to prevent matching issues
+    // 依据错误码而非翻译后的文案判断，避免本地化导致匹配失效
     if (
       e instanceof PurchaseError &&
       (e.code === "2059" || e.code === "buyProductFailure")
@@ -228,7 +228,7 @@ async function purchaseWithParams(
             failureType,
           );
         }
-        // Check for terms page action
+        // 检查是否为条款页操作
         if (action) {
           const actionUrl = firstString(action.url, action.URL);
           if (actionUrl && actionUrl.endsWith("termsPage")) {
@@ -239,7 +239,7 @@ async function purchaseWithParams(
           }
         }
 
-        // Handle unknown error specific fallback mappings
+        // 对未知错误做特定文案映射
         let msg = customerMessage;
         if (
           msg === "An unknown error has occurred" ||

@@ -46,7 +46,7 @@ export interface Account {
 
 export interface Sinf {
   id: number;
-  sinf: string; // base64
+  sinf: string; // base64 编码的 DRM 签名
 }
 
 export interface DownloadOutput {

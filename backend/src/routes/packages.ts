@@ -17,9 +17,9 @@ import type { PackageInfo } from "../types/index.js";
 const router = Router();
 const LOG_SCOPE = "PackagesRoute";
 
-// Sanitize filename for Content-Disposition to prevent header injection
+// 净化 Content-Disposition 文件名，防止响应头注入
 function sanitizeFilename(name: string): string {
-  // Remove control characters, quotes, backslashes, and non-ASCII
+  // 移除控制字符、引号、反斜杠与非 ASCII 字符
   return name
     .replace(/[^\x20-\x7E]/g, "_")
     .replace(/["\\]/g, "_")
@@ -27,7 +27,7 @@ function sanitizeFilename(name: string): string {
     .slice(0, 200);
 }
 
-// List packages filtered by account hashes
+// 按账号哈希过滤列出包
 router.get("/packages", (req: Request, res: Response) => {
   const reqId = getRequestId(res);
   const startedAt = Date.now();
@@ -74,7 +74,7 @@ router.get("/packages", (req: Request, res: Response) => {
   res.json(packages);
 });
 
-// Stream IPA file (requires accountHash)
+// 流式返回 IPA 文件（需 accountHash）
 router.get("/packages/:id/file", (req: Request, res: Response) => {
   const reqId = getRequestId(res);
   const startedAt = Date.now();
@@ -113,7 +113,7 @@ router.get("/packages/:id/file", (req: Request, res: Response) => {
     return;
   }
 
-  // Verify file path is within packages directory
+  // 确认文件路径位于 packages 目录内
   const packagesBase = path.resolve(path.join(config.dataDir, "packages"));
   const resolvedPath = path.resolve(task.filePath);
   if (!resolvedPath.startsWith(packagesBase + path.sep)) {
@@ -149,7 +149,7 @@ router.get("/packages/:id/file", (req: Request, res: Response) => {
   stream.pipe(res);
 });
 
-// Delete a package (requires accountHash)
+// 删除包（需 accountHash）
 router.delete("/packages/:id", (req: Request, res: Response) => {
   const reqId = getRequestId(res);
   const startedAt = Date.now();
@@ -188,7 +188,7 @@ router.delete("/packages/:id", (req: Request, res: Response) => {
     return;
   }
 
-  // Verify file path is within packages directory
+  // 确认文件路径位于 packages 目录内
   const resolvedPath = path.resolve(task.filePath);
   if (!resolvedPath.startsWith(packagesBase + path.sep)) {
     logWarn(LOG_SCOPE, reqId, "delete package path validation failed", {
@@ -202,7 +202,7 @@ router.delete("/packages/:id", (req: Request, res: Response) => {
   if (fs.existsSync(resolvedPath)) {
     fs.unlinkSync(resolvedPath);
 
-    // Clean up empty parent directories
+    // 清理空的父目录
     let dir = path.dirname(resolvedPath);
     while (dir !== packagesBase && dir.startsWith(packagesBase)) {
       const contents = fs.readdirSync(dir);

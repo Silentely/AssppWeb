@@ -16,8 +16,8 @@ import type { Account, Software } from "../types";
 const LOG_PREFIX = "[DownloadAction]";
 
 /**
- * Shared hook for download & purchase actions.
- * Eliminates the duplicated flow across ProductDetail, VersionHistory, and AddDownload.
+ * 下载与购买动作的共享 Hook，
+ * 消除 ProductDetail、VersionHistory、AddDownload 之间的重复流程。
  */
 export function useDownloadAction() {
   const { updateAccount } = useAccounts();
@@ -116,7 +116,7 @@ export function useDownloadAction() {
         }
       }
     } catch {
-      // Backend still enforces this limit if settings cannot be fetched.
+      // 设置获取失败时由后端兜底执行同一大小限制
       console.warn(`${LOG_PREFIX} settings pre-check failed, continue`, {
         appId: effectiveApp.id,
         bundleID: effectiveApp.bundleID,
@@ -165,7 +165,11 @@ export function useDownloadAction() {
     fetchTasks();
 
     addToast(
-      t("toast.msg", { appName, ...ctx }),
+      t("toast.msg", {
+        appName,
+        version: ` v${output.bundleShortVersionString}`,
+        ...ctx,
+      }),
       "info",
       t("toast.title.downloadStarted"),
     );
@@ -203,7 +207,11 @@ export function useDownloadAction() {
     });
 
     addToast(
-      t("toast.msg", { appName, ...ctx }),
+      t("toast.msg", {
+        appName,
+        version: ` v${effectiveApp.version}`,
+        ...ctx,
+      }),
       "success",
       t("toast.title.licenseSuccess"),
     );
@@ -221,6 +229,7 @@ export function useDownloadAction() {
     addToast(
       t("toast.msgFailed", {
         appName: app.name,
+        version: ` v${app.version}`,
         ...ctx,
         error: getErrorMessage(error, t("toast.title.downloadFailed")),
       }),
@@ -241,6 +250,7 @@ export function useDownloadAction() {
     addToast(
       t("toast.msgFailed", {
         appName: app.name,
+        version: ` v${app.version}`,
         ...ctx,
         error: getErrorMessage(error, t("toast.title.licenseFailed")),
       }),

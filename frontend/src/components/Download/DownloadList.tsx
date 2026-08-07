@@ -69,7 +69,11 @@ export default function DownloadList() {
       const ctx = getAccountContext(account, t);
 
       addToast(
-        t("toast.msg", { appName: task.software.name, ...ctx }),
+        t("toast.msg", {
+          appName: task.software.name,
+          version: ` v${task.software.version}`,
+          ...ctx,
+        }),
         "success",
         t("toast.title.deleteSuccess"),
       );
@@ -122,7 +126,7 @@ export default function DownloadList() {
           count++;
         }
       } catch {
-        // Continue with next item
+        // 单个应用检查失败不影响后续
       }
 
       setCheckProgress((prev) => ({ ...prev, current: i + 1 }));

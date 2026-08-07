@@ -43,7 +43,7 @@ function escapeXml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-// Native browser plist parser — avoids @xmldom/xmldom bundling issues
+// 使用浏览器原生 DOMParser 解析 plist，避免引入 @xmldom/xmldom 增加打包体积
 export function parsePlist(xml: string): any {
   const doc = new DOMParser().parseFromString(
     normalizePlistXML(xml),

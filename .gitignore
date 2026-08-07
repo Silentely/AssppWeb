@@ -140,3 +140,6 @@ deploy.sh
 .ace-tool/
 .omx/
 .omc/
+
+# Backend runtime data (packages, task metadata)
+backend/data/

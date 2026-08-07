@@ -83,7 +83,7 @@ export async function authenticate(
         requestHost,
       );
 
-      // Read store front
+      // 读取 store front
       const storeHeader = response.headers["x-set-apple-store-front"];
       if (storeHeader) {
         const parts = storeHeader.split("-");
@@ -92,11 +92,11 @@ export async function authenticate(
         }
       }
 
-      // Read pod
+      // 读取 pod
       const podHeader = response.headers["pod"];
       pod = podHeader || undefined;
 
-      // Handle redirect
+      // 处理重定向
       if (response.status === 302) {
         const location = response.headers["location"];
         if (!location) {
@@ -117,7 +117,7 @@ export async function authenticate(
         );
       }
 
-      // Handle non-plist responses (e.g. 403 with empty body)
+      // 处理非 plist 响应（如带空 body 的 403）
       if (!response.body.trim()) {
         if (response.status === 200) {
           if (!code) {
@@ -192,7 +192,7 @@ export async function authenticate(
         throw new AuthenticationError(invalidCredentialsMessage(dict));
       }
 
-      // Check for 2FA requirement
+      // 检查是否要求 2FA 验证
       if (
         dict.failureType === "" &&
         !code &&

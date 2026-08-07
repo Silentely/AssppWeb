@@ -8,9 +8,8 @@ export interface BagOutput {
   authURL: string;
 }
 
-// Fetches the bag via the backend proxy.
-// The backend fetches it using Node.js native HTTPS.
-// The bag response is public data (Apple service URLs, no credentials).
+// 通过后端代理拉取 bag：后端使用 Node.js 原生 HTTPS 请求，
+// bag 响应为公开数据（Apple 服务地址，不含任何凭据）。
 export async function fetchBag(deviceId: string): Promise<BagOutput> {
   try {
     const resp = await fetch(`/api/bag?guid=${encodeURIComponent(deviceId)}`, {
@@ -27,8 +26,7 @@ export async function fetchBag(deviceId: string): Promise<BagOutput> {
     const xml = await resp.text();
     const dict = parsePlist(xml) as Record<string, any>;
 
-    // authenticateAccount may be at top level or inside a urlBag dict.
-    // Prefer the top-level value, falling back to the urlBag entry.
+    // authenticateAccount 可能位于顶层或 urlBag 字典内，优先取顶层值
     let authURL = dict.authenticateAccount as string | undefined;
     if (!authURL) {
       const urlBag = dict.urlBag as Record<string, any> | undefined;

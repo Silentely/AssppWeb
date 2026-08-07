@@ -25,7 +25,7 @@ export async function inject(
 ): Promise<void> {
   const { bundleName, manifest, info } = await readIpaMetadata(ipaPath);
 
-  // Collect all files to inject
+  // 收集所有需要注入的文件
   const filesToInject: { entryPath: string; data: Buffer }[] = [];
 
   if (manifest) {
@@ -50,9 +50,9 @@ export async function inject(
     throw new Error("Could not read manifest or info plist");
   }
 
-  // Inject iTunesMetadata.plist at the archive root if provided
-  // Frontend sends base64-encoded XML plist; convert to binary plist
-  // to match Apple's native format (PropertyListSerialization .binary)
+  // 若提供了 iTunesMetadata，则注入到 IPA 归档根目录。
+  // 前端发送的是 base64 编码的 XML plist，这里转换为二进制 plist，
+  // 以匹配 Apple 原生格式（PropertyListSerialization .binary）。
   if (iTunesMetadata) {
     const xmlBuffer = Buffer.from(iTunesMetadata, "base64");
     const xmlString = xmlBuffer.toString("utf-8");
@@ -92,7 +92,7 @@ async function readIpaMetadata(ipaPath: string): Promise<IpaMetadata> {
     for await (const entry of zip) {
       const filename = entry.filename;
 
-      // Find bundle name from .app directory
+      // 从 .app 目录中查找 bundle 名称
       if (
         !bundleName &&
         filename.includes(".app/Info.plist") &&
@@ -107,13 +107,13 @@ async function readIpaMetadata(ipaPath: string): Promise<IpaMetadata> {
         }
       }
 
-      // Read Manifest.plist
+      // 读取 Manifest.plist
       if (!manifestData && filename.endsWith(".app/SC_Info/Manifest.plist")) {
         const stream = await entry.openReadStream();
         manifestData = await streamToBuffer(stream);
       }
 
-      // Read Info.plist (non-Watch)
+      // 读取 Info.plist（排除 Watch 应用）
       if (
         !infoPlistData &&
         filename.includes(".app/Info.plist") &&
@@ -128,7 +128,7 @@ async function readIpaMetadata(ipaPath: string): Promise<IpaMetadata> {
       throw new Error("Could not read bundle name");
     }
 
-    // Parse manifest
+    // 解析 manifest
     let manifest: { sinfPaths: string[] } | null = null;
     if (manifestData) {
       const parsed = parsePlistBuffer(manifestData);
@@ -140,7 +140,7 @@ async function readIpaMetadata(ipaPath: string): Promise<IpaMetadata> {
       }
     }
 
-    // Parse info plist
+    // 解析 info plist
     let info: { bundleExecutable: string } | null = null;
     if (infoPlistData) {
       const parsed = parsePlistBuffer(infoPlistData);
@@ -165,10 +165,10 @@ async function addFilesToZip(
   const tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), "sinf-"));
   const resolvedTmpDir = path.resolve(tmpDir);
   try {
-    // Write files to temp dir preserving ZIP path structure
+    // 写入临时目录，保持 ZIP 内部路径结构
     const relativePaths: string[] = [];
     for (const file of files) {
-      // Guard against path traversal from IPA-derived entry paths
+      // 防止从 IPA 解析出的条目路径造成路径穿越
       const fullPath = path.resolve(tmpDir, file.entryPath);
       if (!fullPath.startsWith(resolvedTmpDir + path.sep)) {
         throw new Error(`Path traversal detected in entry: ${file.entryPath}`);
@@ -178,9 +178,9 @@ async function addFilesToZip(
       relativePaths.push(file.entryPath);
     }
 
-    // Use zip to update the archive in-place
-    // -0: store without compression (SINF/plist files are tiny)
-    // "--" after archive name prevents file args from being parsed as flags
+    // 使用 zip 就地更新归档
+    // -0: 不压缩存储（SINF/plist 文件都很小）
+    // 归档名后的 "--" 防止文件名被解析为命令行参数
     await execFile("zip", ["-0", ipaPath, "--", ...relativePaths], {
       cwd: tmpDir,
       maxBuffer: 1024 * 1024,
@@ -191,17 +191,17 @@ async function addFilesToZip(
 }
 
 function parsePlistBuffer(data: Buffer): Record<string, unknown> | null {
-  // Try binary plist first
+  // 优先尝试二进制 plist
   try {
     const parsed = bplistParser.parseBuffer(data);
     if (parsed && parsed.length > 0) {
       return parsed[0] as Record<string, unknown>;
     }
   } catch {
-    // Not binary plist, try XML
+    // 非二进制 plist，继续尝试 XML
   }
 
-  // Try XML plist
+  // 尝试 XML plist
   try {
     const xml = data.toString("utf-8");
     if (xml.includes("<?xml") || xml.includes("<plist")) {
@@ -211,7 +211,7 @@ function parsePlistBuffer(data: Buffer): Record<string, unknown> | null {
       }
     }
   } catch {
-    // Not valid XML plist either
+    // 也不是合法的 XML plist
   }
 
   return null;

@@ -64,7 +64,15 @@ export default function PackageDetail() {
   const appName = task.software.name;
 
   function toastAction(titleKey: string, type: "success" | "info" = "info") {
-    addToast(t("toast.msg", { appName, ...ctx }), type, t(titleKey));
+    addToast(
+      t("toast.msg", {
+        appName,
+        version: ` v${currentTask.software.version}`,
+        ...ctx,
+      }),
+      type,
+      t(titleKey),
+    );
   }
 
   async function handleDelete() {
@@ -114,7 +122,11 @@ export default function PackageDetail() {
     }
 
     addToast(
-      t("toast.msgShare", { appName, ...ctx }),
+      t("toast.msgShare", {
+        appName,
+        version: ` v${currentTask.software.version}`,
+        ...ctx,
+      }),
       "success",
       t("toast.title.shareAcquired"),
     );

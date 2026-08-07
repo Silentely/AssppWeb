@@ -98,7 +98,7 @@ export default function VersionHistory() {
       setVersionMeta((prev) => ({ ...prev, [versionId]: result.metadata }));
       await updateAccount({ ...account, cookies: result.updatedCookies });
     } catch {
-      // Keep the version ID visible if Apple does not return metadata.
+      // Apple 未返回元数据时保留版本号展示
     } finally {
       setLoadingMeta((prev) => ({ ...prev, [versionId]: false }));
     }

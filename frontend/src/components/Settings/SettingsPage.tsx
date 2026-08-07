@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import PageContainer from "../Layout/PageContainer";
 import Modal from "../common/Modal";
 import { useAccountsStore } from "../../store/accounts";
-import { useSettingsStore } from "../../store/settings";
+import { useSettingsStore, type EntityType } from "../../store/settings";
 import { useToastStore } from "../../store/toast";
 import { apiGet } from "../../api/client";
 import { encryptData, decryptData } from "../../utils/crypto";
@@ -241,7 +241,7 @@ export default function SettingsPage() {
                 id="entity"
                 value={defaultEntity}
                 onChange={(e) => {
-                  setDefaultEntity(e.target.value as any);
+                  setDefaultEntity(e.target.value as EntityType);
                   addToast(t("settings.defaults.entityChanged"), "success");
                 }}
                 className="block w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-base text-gray-900 dark:text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"

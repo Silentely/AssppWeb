@@ -449,9 +449,9 @@
       "deleteSuccess": "Delete Success",
       "downloadLimit": "Size Limit Exceeded"
     },
-    "msg": "{{appName}}\n{{userName}} / {{appleId}} - {{country}}",
-    "msgShare": "{{appName}}\n{{userName}} / {{appleId}} - {{country}}\n\nYou can use AirDrop to share it with your friends.",
-    "msgFailed": "{{appName}}\n{{userName}} / {{appleId}} - {{country}}\n\nError: {{error}}",
+    "msg": "{{appName}}{{version}}\n{{userName}} / {{appleId}} - {{country}}",
+    "msgShare": "{{appName}}{{version}}\n{{userName}} / {{appleId}} - {{country}}\n\nYou can use AirDrop to share it with your friends.",
+    "msgFailed": "{{appName}}{{version}}\n{{userName}} / {{appleId}} - {{country}}\n\nError: {{error}}",
     "downloadLimit": {
       "message": "{{appName}}\nApp size {{size}} MB exceeds the server limit of {{limit}} MB.\nPlease contact the administrator or deploy your own instance."
     },

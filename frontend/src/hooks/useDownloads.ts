@@ -21,22 +21,22 @@ export function useDownloads() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      // Calculate original hashes preserving the order corresponding to 'accounts'
+      // 计算各账号哈希，顺序与 accounts 保持一致
       const hashes = await Promise.all(accounts.map((a) => accountHash(a)));
-      // Use slice() before sort() so we don't mutate the original 'hashes' array
+      // 先 slice 再 sort，避免修改原始 hashes 数组
       const key = hashes.slice().sort().join(",");
       if (cancelled || key === hashesRef.current) return;
       hashesRef.current = key;
 
       const map: Record<string, string> = {};
       for (let i = 0; i < accounts.length; i++) {
-        // Now hashes[i] correctly maps to accounts[i]
+        // 此时 hashes[i] 与 accounts[i] 一一对应
         map[hashes[i]] = accounts[i].email;
       }
       setHashToEmail(map);
 
       setAccountHashes(hashes);
-      // Fetch immediately after hashes are set so downloads appear on first visit
+      // 哈希设置完成后立即拉取一次，保证首次进入页面即展示下载列表
       fetchTasks();
     })();
     return () => {

@@ -68,5 +68,5 @@ export const useAccountsStore = create<AccountsState>((set, get) => ({
   },
 }));
 
-// Auto-load accounts on import
+// 模块加载时自动从本地存储恢复账号列表
 useAccountsStore.getState().loadAccounts();

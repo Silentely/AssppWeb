@@ -19,7 +19,12 @@ interface DownloadsState {
   deleteDownload: (id: string) => Promise<void>;
 }
 
-let pollInterval: ReturnType<typeof setInterval> | null = null;
+let pollTimer: ReturnType<typeof setTimeout> | null = null;
+let inFlight = false;
+let consecutiveErrors = 0;
+
+const POLL_INTERVAL_MS = 2000;
+const MAX_POLL_INTERVAL_MS = 30_000;
 
 function hasActiveTasks(tasks: DownloadTask[]): boolean {
   return tasks.some(
@@ -31,17 +36,29 @@ function hasActiveTasks(tasks: DownloadTask[]): boolean {
 }
 
 function stopPolling() {
-  if (pollInterval) {
-    clearInterval(pollInterval);
-    pollInterval = null;
+  if (pollTimer) {
+    clearTimeout(pollTimer);
+    pollTimer = null;
   }
 }
 
-function startPolling() {
-  if (pollInterval) return;
-  pollInterval = setInterval(() => {
-    useDownloadsStore.getState().fetchTasks();
-  }, 2000);
+// 轮询采用可变延迟：连续失败时指数退避，避免故障期间高频请求
+function schedulePoll() {
+  if (pollTimer) return;
+  const backoff = Math.min(2 ** Math.min(consecutiveErrors, 4), 16);
+  const delay = Math.min(POLL_INTERVAL_MS * backoff, MAX_POLL_INTERVAL_MS);
+  pollTimer = setTimeout(() => {
+    pollTimer = null;
+    void useDownloadsStore.getState().fetchTasks();
+  }, delay);
+}
+
+function startPolling(immediate = false) {
+  if (pollTimer) return;
+  if (immediate) {
+    void useDownloadsStore.getState().fetchTasks();
+  }
+  schedulePoll();
 }
 
 // 页面切到后台时暂停轮询，回到前台时立即恢复一次，避免隐藏标签页空转请求
@@ -51,10 +68,16 @@ if (typeof document !== "undefined") {
     if (document.hidden) {
       stopPolling();
     } else if (hasActiveTasks(state.tasks)) {
-      startPolling();
-      state.fetchTasks();
+      startPolling(true);
     }
   });
+}
+
+// 仅测试使用：重置轮询内部状态（定时器、并发标志、退避计数）
+export function __resetPollStateForTests() {
+  stopPolling();
+  inFlight = false;
+  consecutiveErrors = 0;
 }
 
 export const useDownloadsStore = create<DownloadsState>((set, get) => ({
@@ -65,6 +88,12 @@ export const useDownloadsStore = create<DownloadsState>((set, get) => ({
   setAccountHashes: (hashes) => set({ accountHashes: hashes }),
 
   fetchTasks: async () => {
+    // 并发守卫：请求进行中时跳过本轮，并重排下一次轮询
+    if (inFlight) {
+      schedulePoll();
+      return;
+    }
+    inFlight = true;
     const { accountHashes, tasks } = get();
     // 仅在列表为空时展示全屏 loading，避免轮询刷新时列表闪烁
     if (tasks.length === 0) {
@@ -72,15 +101,25 @@ export const useDownloadsStore = create<DownloadsState>((set, get) => ({
     }
     try {
       const fetchedTasks = await downloadsApi.fetchDownloads(accountHashes);
+      consecutiveErrors = 0;
       set({ tasks: fetchedTasks, loading: false });
 
       if (hasActiveTasks(fetchedTasks)) {
-        startPolling();
+        schedulePoll();
       } else {
         stopPolling();
       }
     } catch {
+      consecutiveErrors += 1;
       set({ loading: false });
+      // 失败时若仍有活跃任务则退避重试，否则停止轮询
+      if (hasActiveTasks(get().tasks)) {
+        schedulePoll();
+      } else {
+        stopPolling();
+      }
+    } finally {
+      inFlight = false;
     }
   },
 

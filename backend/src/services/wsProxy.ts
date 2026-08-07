@@ -2,7 +2,7 @@ import { Server as HttpServer } from "http";
 import { server as wisp } from "@mercuryworkshop/wisp-js/server";
 import { accessPasswordHash, verifyAccessToken } from "../config.js";
 
-// Allow only Apple hosts required by bag/auth/purchase/version flows.
+// 仅放行 bag/auth/purchase/version 流程所需的 Apple 主机
 wisp.options.hostname_whitelist = [
   /^auth\.itunes\.apple\.com$/,
   /^buy\.itunes\.apple\.com$/,
@@ -11,9 +11,8 @@ wisp.options.hostname_whitelist = [
 ];
 wisp.options.port_whitelist = [443];
 wisp.options.allow_direct_ip = false;
-// allow_private_ips must be true: Docker/container DNS may resolve whitelisted
-// hostnames to reserved-range IPs (e.g. 198.18.x.x in OrbStack). The hostname
-// whitelist above is the primary security control.
+// allow_private_ips 必须为 true：Docker/容器 DNS 可能把白名单主机解析到保留网段
+// （如 OrbStack 中的 198.18.x.x）。上方的 hostname 白名单是主要安全控制。
 wisp.options.allow_private_ips = true;
 wisp.options.allow_loopback_ips = false;
 
@@ -22,8 +21,8 @@ export function setupWsProxy(server: HttpServer) {
     if (req.url?.startsWith("/wisp")) {
       if (accessPasswordHash) {
         const url = new URL(req.url, "http://localhost");
-        // Cloudflare URL normalization may append a trailing slash to the query
-        // string (e.g. ?token=abc/ instead of ?token=abc), so strip it.
+        // Cloudflare 的 URL 规范化可能给查询串追加尾部斜杠
+        // （如 ?token=abc/ 而非 ?token=abc），这里将其去掉。
         const token = (url.searchParams.get("token") || "").replace(/\/+$/, "");
         if (!verifyAccessToken(token)) {
           socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");

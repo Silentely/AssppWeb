@@ -3,29 +3,20 @@ import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import PageContainer from "../Layout/PageContainer";
 import { useAccounts } from "../../hooks/useAccounts";
+import { useDownloads } from "../../hooks/useDownloads";
 import { apiGet } from "../../api/client";
 import { accountHash } from "../../utils/account";
-
-interface Stats {
-  accounts: number;
-  downloads: number;
-  packages: number;
-}
 
 export default function HomePage() {
   const { t } = useTranslation();
   const { accounts } = useAccounts();
-  const [stats, setStats] = useState<Stats>({
-    accounts: 0,
-    downloads: 0,
-    packages: 0,
-  });
+  // 复用全局下载任务数据，与下载页计数保持一致，避免重复请求
+  const { tasks } = useDownloads();
+  const [packageCount, setPackageCount] = useState(0);
 
   useEffect(() => {
-    setStats((prev) => ({ ...prev, accounts: accounts.length }));
-
     if (accounts.length === 0) {
-      setStats((prev) => ({ ...prev, downloads: 0, packages: 0 }));
+      setPackageCount(0);
       return;
     }
 
@@ -39,18 +30,13 @@ export default function HomePage() {
         accountHashes: hashes.join(","),
       });
 
-      const [downloads, packages] = await Promise.all([
-        apiGet<any[]>(`/api/downloads?${params}`).catch(() => []),
-        apiGet<any[]>(`/api/packages?${params}`).catch(() => []),
-      ]);
+      const packages = await apiGet<unknown[]>(
+        `/api/packages?${params}`,
+      ).catch(() => []);
 
       if (cancelled) return;
 
-      setStats((prev) => ({
-        ...prev,
-        downloads: Array.isArray(downloads) ? downloads.length : 0,
-        packages: Array.isArray(packages) ? packages.length : 0,
-      }));
+      setPackageCount(Array.isArray(packages) ? packages.length : 0);
     })();
 
     return () => {
@@ -71,9 +57,9 @@ export default function HomePage() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <StatCard label={t("home.stats.accounts")} value={stats.accounts} />
-          <StatCard label={t("home.stats.downloads")} value={stats.downloads} />
-          <StatCard label={t("home.stats.packages")} value={stats.packages} />
+          <StatCard label={t("home.stats.accounts")} value={accounts.length} />
+          <StatCard label={t("home.stats.downloads")} value={tasks.length} />
+          <StatCard label={t("home.stats.packages")} value={packageCount} />
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

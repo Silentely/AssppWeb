@@ -46,7 +46,7 @@ function trimLogText(value: string, maxLength: number = 64): string {
   return `${value.slice(0, maxLength)}...`;
 }
 
-// Map iTunes API fields to our Software type, matching Swift CodingKeys
+// 将 iTunes API 字段映射到我们的 Software 类型，与 Swift CodingKeys 保持一致
 function mapLegacySoftware(item: Record<string, any>) {
   return {
     id: item.trackId,

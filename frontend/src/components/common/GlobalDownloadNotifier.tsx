@@ -33,7 +33,7 @@ export default function GlobalDownloadNotifier() {
       currentTasks[task.id] = task;
       const prevTask = prevTasks[task.id];
 
-      // Only notify for transitions (skip initial load)
+      // 仅在状态发生迁移时通知（跳过首次加载）
       if (prevTask) {
         if (prevTask.status !== "completed" && task.status === "completed") {
           notify(task, "success");
@@ -54,7 +54,11 @@ export default function GlobalDownloadNotifier() {
 
       if (type === "success") {
         addToast(
-          t("toast.msg", { appName, ...ctx }),
+          t("toast.msg", {
+            appName,
+            version: ` v${task.software.version}`,
+            ...ctx,
+          }),
           "success",
           t("toast.title.downloadSuccess"),
         );
@@ -62,6 +66,7 @@ export default function GlobalDownloadNotifier() {
         addToast(
           t("toast.msgFailed", {
             appName,
+            version: ` v${task.software.version}`,
             ...ctx,
             error: task.error || t("toast.unknownError"),
           }),

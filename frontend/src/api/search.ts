@@ -20,7 +20,7 @@ export function parseSearchInput(input: string): SearchInput {
       }
     }
   } catch {
-    // Not a URL; continue with plain identifier detection below.
+    // 非 URL 时继续按普通标识符识别
   }
 
   const prefixedId = value.match(/^id(\d+)$/i)?.[1];

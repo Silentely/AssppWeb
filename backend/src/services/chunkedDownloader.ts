@@ -12,7 +12,7 @@ import {
 interface ChunkRange {
   index: number;
   start: number;
-  end: number; // inclusive
+  end: number; // 含端点
 }
 
 interface ProgressInfo {
@@ -24,8 +24,8 @@ interface ProgressInfo {
 type ProgressCallback = (info: ProgressInfo) => void;
 
 /**
- * Multi-threaded HTTP downloader using Range requests.
- * Falls back to single-stream when the server doesn't support Range.
+ * 基于 Range 请求的多线程 HTTP 下载器。
+ * 服务器不支持 Range 时自动降级为单流下载。
  */
 export class ChunkedDownloader {
   private readonly url: string;
@@ -51,7 +51,7 @@ export class ChunkedDownloader {
     this.onProgress = options?.onProgress;
   }
 
-  /** Probe the server for Range support and content length. */
+  /** 探测服务器是否支持 Range 并获取内容长度。 */
   private async probe(signal: AbortSignal): Promise<{
     supportsRange: boolean;
     contentLength: number;
@@ -75,7 +75,7 @@ export class ChunkedDownloader {
     return { supportsRange, contentLength };
   }
 
-  /** Split total size into chunk ranges. */
+  /** 将总大小切分为多个分块区间。 */
   private splitChunks(totalSize: number): ChunkRange[] {
     const chunkSize = Math.ceil(totalSize / this.threads);
     const chunks: ChunkRange[] = [];
@@ -88,7 +88,7 @@ export class ChunkedDownloader {
     return chunks;
   }
 
-  /** Download a single chunk with retries, writing to a .part file. */
+  /** 下载单个分块（带重试），写入 .part 临时文件。 */
   private async downloadChunk(
     chunk: ChunkRange,
     signal: AbortSignal,
@@ -149,7 +149,7 @@ export class ChunkedDownloader {
         });
 
         await pipeline(readable, ws);
-        return; // success
+        return; // 分块下载成功
       } catch (err) {
         lastErr = err instanceof Error ? err : new Error(String(err));
         if (lastErr.name === "AbortError" || this.aborted) throw lastErr;
@@ -165,7 +165,7 @@ export class ChunkedDownloader {
     throw lastErr ?? new Error(`Chunk ${chunk.index} failed after retries`);
   }
 
-  /** Merge all .part files into the final destination. */
+  /** 将各 .part 文件按顺序合并到最终目标文件。 */
   private async mergeChunks(chunkCount: number): Promise<void> {
     const ws = fs.createWriteStream(this.destPath);
     for (let i = 0; i < chunkCount; i++) {
@@ -182,19 +182,19 @@ export class ChunkedDownloader {
     this.cleanPartFiles(chunkCount);
   }
 
-  /** Remove .part temporary files. */
+  /** 删除 .part 临时文件。 */
   private cleanPartFiles(chunkCount: number): void {
     for (let i = 0; i < chunkCount; i++) {
       const partPath = `${this.destPath}.part${i}`;
       try {
         if (fs.existsSync(partPath)) fs.unlinkSync(partPath);
       } catch {
-        // best-effort cleanup
+        // 尽力清理，失败可忽略
       }
     }
   }
 
-  /** Single-stream fallback download. */
+  /** 单流下载兜底方案。 */
   private async downloadSingleStream(signal: AbortSignal): Promise<void> {
     const res = await fetch(this.url, { signal, redirect: "follow" });
     if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
@@ -263,9 +263,8 @@ export class ChunkedDownloader {
   }
 
   /**
-   * Execute the download.
-   * Probes for Range support, then either downloads in parallel chunks
-   * or falls back to single-stream.
+   * 执行下载：先探测 Range 支持情况，
+   * 支持则并行分块下载，否则降级为单流下载。
    */
   async download(signal: AbortSignal): Promise<void> {
     let supportsRange = false;
@@ -275,7 +274,7 @@ export class ChunkedDownloader {
       supportsRange = probeResult.supportsRange;
       contentLength = probeResult.contentLength;
     } catch {
-      // HEAD failed — fall back to single-stream
+      // HEAD 探测失败——降级为单流下载
     }
 
     if (contentLength > MAX_DOWNLOAD_SIZE) {
@@ -336,19 +335,19 @@ export class ChunkedDownloader {
     }
   }
 
-  /** Abort all active connections and clean up temporary files. */
+  /** 中止所有活动连接并清理临时文件。 */
   abort(): void {
     this.aborted = true;
     for (const ac of this.abortControllers) {
       try {
         ac.abort();
       } catch {
-        // ignore
+        // 忽略单个连接的中止异常
       }
     }
     this.abortControllers.clear();
 
-    // Clean up any .part files by scanning directory
+    // 扫描目录清理遗留的 .part 文件
     try {
       const dir = path.dirname(this.destPath);
       const base = path.basename(this.destPath);
@@ -358,13 +357,13 @@ export class ChunkedDownloader {
             try {
               fs.unlinkSync(path.join(dir, entry));
             } catch {
-              // best-effort
+              // 尽力清理
             }
           }
         }
       }
     } catch {
-      // best-effort cleanup
+      // 尽力清理
     }
   }
 }

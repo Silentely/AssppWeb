@@ -21,7 +21,7 @@ export interface Software {
 
 export interface Sinf {
   id: number;
-  sinf: string; // base64 encoded
+  sinf: string; // base64 编码的 DRM 签名
 }
 
 export interface DownloadTask {

@@ -1,5 +1,5 @@
-// Shared icon components used by Sidebar, MobileNav, MobileHeader,
-// and empty-state containers across feature pages.
+// 侧栏、移动端导航、移动端顶栏及各功能页空状态共用的图标组件。
+// 需要图标的组件统一从此处导入，避免内联重复定义 SVG。
 
 interface IconProps {
   className?: string;

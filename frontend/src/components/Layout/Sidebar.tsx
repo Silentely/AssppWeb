@@ -1,16 +1,13 @@
 import { NavLink } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import ThemeToggle from "../common/ThemeToggle";
 import {
   HomeIcon,
   AccountsIcon,
   SearchIcon,
   DownloadsIcon,
   SettingsIcon,
-  SunIcon,
-  MoonIcon,
-  SystemIcon,
 } from "../common/icons";
-import { useSettingsStore } from "../../store/settings";
 
 const navItems = [
   { to: "/", label: "home", icon: HomeIcon },
@@ -53,29 +50,5 @@ export default function Sidebar() {
         <ThemeToggle />
       </div>
     </aside>
-  );
-}
-
-function ThemeToggle() {
-  const { theme, setTheme } = useSettingsStore();
-  const { t } = useTranslation();
-
-  const cycleTheme = () => {
-    if (theme === "system") setTheme("light");
-    else if (theme === "light") setTheme("dark");
-    else setTheme("system");
-  };
-
-  return (
-    <button
-      onClick={cycleTheme}
-      className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm font-medium transition-colors text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white"
-      title={t(`theme.${theme}`)}
-    >
-      {theme === "light" && <SunIcon className="w-5 h-5" />}
-      {theme === "dark" && <MoonIcon className="w-5 h-5" />}
-      {theme === "system" && <SystemIcon className="w-5 h-5" />}
-      <span>{t(`theme.${theme}`)}</span>
-    </button>
   );
 }
