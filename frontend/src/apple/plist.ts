@@ -1,4 +1,15 @@
-export function buildPlist(obj: Record<string, any>): string {
+// plist 值是递归结构：基础类型 / 数组 / 字典的任意嵌套。
+// 用显式联合类型收敛边界，替代裸 any，同时保持与调用方断言的兼容。
+export type PlistValue =
+  | string
+  | number
+  | boolean
+  | Date
+  | Uint8Array
+  | PlistValue[]
+  | { [key: string]: PlistValue };
+
+export function buildPlist(obj: Record<string, PlistValue>): string {
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">',
@@ -8,7 +19,7 @@ export function buildPlist(obj: Record<string, any>): string {
   ].join("\n");
 }
 
-function buildNode(value: any): string {
+function buildNode(value: unknown): string {
   if (value === null || value === undefined) return "<string></string>";
   if (value instanceof Uint8Array || value instanceof ArrayBuffer) {
     const bytes = value instanceof ArrayBuffer ? new Uint8Array(value) : value;
@@ -44,7 +55,7 @@ function escapeXml(s: string): string {
 }
 
 // 使用浏览器原生 DOMParser 解析 plist，避免引入 @xmldom/xmldom 增加打包体积
-export function parsePlist(xml: string): any {
+export function parsePlist(xml: string): PlistValue {
   const doc = new DOMParser().parseFromString(
     normalizePlistXML(xml),
     "text/xml",
@@ -95,17 +106,17 @@ function normalizePlistXML(xml: string): string {
   return normalized;
 }
 
-function parseNode(node: Element): any {
+function parseNode(node: Element): PlistValue {
   switch (node.nodeName) {
     case "dict": {
-      const result: Record<string, any> = {};
+      const result: Record<string, PlistValue> = {};
       const children = Array.from(node.children);
       for (let i = 0; i < children.length; i += 2) {
         if (children[i].nodeName !== "key") continue;
         const key = children[i].textContent || "";
-        const value =
-          i + 1 < children.length ? parseNode(children[i + 1]) : null;
-        result[key] = value;
+        if (i + 1 < children.length) {
+          result[key] = parseNode(children[i + 1]);
+        }
       }
       return result;
     }

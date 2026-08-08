@@ -416,7 +416,10 @@
       "missingVersion": "必要なバージョン情報がありません",
       "invalidSinf": "無効な sinf 項目です",
       "noSinf": "レスポンスに sinf が見つかりません",
-      "tooManyRedirects": "リダイレクトが多すぎます"
+      "tooManyRedirects": "リダイレクトが多すぎます",
+      "missingVersionIdentifiers": "バージョン識別子がありません",
+      "noVersionsFound": "利用可能なバージョンが見つかりません",
+      "missingReleaseDate": "リリース日がありません"
     },
     "purchase": {
       "paidNotSupported": "有料アプリの購入はサポートされていません",
@@ -438,6 +441,16 @@
       "missingAddress": "レスポンスに address がありません",
       "missingSessionToken": "ログインレスポンスに App Store セッショントークンが含まれていません",
       "unknownReason": "不明な理由により認証に失敗しました"
+    },
+    "downloadTask": {
+      "timeout": "ダウンロードがタイムアウトしました",
+      "failed": "ダウンロードに失敗しました",
+      "tooLarge": "ファイルが許可された最大サイズを超えています",
+      "invalidPath": "ファイルパスが無効です"
+    },
+    "search": {
+      "loadFailed": "アプリ情報の読み込みに失敗しました",
+      "failed": "検索に失敗しました"
     }
   },
   "toast": {
@@ -462,6 +475,7 @@
     },
     "unknownAccount": "不明",
     "unknownError": "不明なエラー",
-    "close": "通知を閉じる"
+    "close": "通知を閉じる",
+    "regionLabel": "通知"
   }
 }

@@ -1,6 +1,7 @@
 import { Server as HttpServer } from "http";
 import { server as wisp } from "@mercuryworkshop/wisp-js/server";
 import { accessPasswordHash, verifyAccessToken } from "../config.js";
+import { logWarn } from "../utils/requestLog.js";
 
 // 仅放行 bag/auth/purchase/version 流程所需的 Apple 主机
 wisp.options.hostname_whitelist = [
@@ -16,6 +17,8 @@ wisp.options.allow_direct_ip = false;
 wisp.options.allow_private_ips = true;
 wisp.options.allow_loopback_ips = false;
 
+const WISP_SCOPE = "WsProxy";
+
 export function setupWsProxy(server: HttpServer) {
   server.on("upgrade", (req, socket, head) => {
     if (req.url?.startsWith("/wisp")) {
@@ -25,6 +28,11 @@ export function setupWsProxy(server: HttpServer) {
         // （如 ?token=abc/ 而非 ?token=abc），这里将其去掉。
         const token = (url.searchParams.get("token") || "").replace(/\/+$/, "");
         if (!verifyAccessToken(token)) {
+          // 记录来源与结果，便于排查异常连接与未授权探测
+          logWarn(WISP_SCOPE, "system", "wisp upgrade rejected: bad token", {
+            remote: req.socket.remoteAddress ?? "",
+            url: req.url.slice(0, 160),
+          });
           socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
           socket.destroy();
           return;
@@ -33,6 +41,10 @@ export function setupWsProxy(server: HttpServer) {
 
       wisp.routeRequest(req, socket, head);
     } else {
+      logWarn(WISP_SCOPE, "system", "websocket upgrade rejected: not /wisp", {
+        remote: req.socket.remoteAddress ?? "",
+        url: (req.url ?? "").slice(0, 160),
+      });
       socket.write("HTTP/1.1 404 Not Found\r\n\r\n");
       socket.destroy();
     }

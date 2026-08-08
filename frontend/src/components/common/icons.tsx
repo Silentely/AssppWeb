@@ -79,6 +79,25 @@ export function UsersIcon({ className, strokeWidth = 1.5 }: IconProps) {
   );
 }
 
+// 加号图标（新建操作 / 空状态引导）
+export function PlusIcon({ className, strokeWidth = 1.5 }: IconProps) {
+  return (
+    <svg
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      strokeWidth={strokeWidth}
+      stroke="currentColor"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M12 9v6m3-3H9m12 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
+      />
+    </svg>
+  );
+}
+
 // 下载空状态图标（托盘/收纳箱轮廓）
 export function DownloadBoxIcon({ className, strokeWidth = 1.5 }: IconProps) {
   return (

@@ -22,6 +22,7 @@ import {
   getRequestId,
   logError,
   logInfo,
+  logDebug,
   logWarn,
   maskAccountHash,
   safeErrorMessage,
@@ -262,7 +263,8 @@ router.get("/downloads", (req: Request, res: Response) => {
   const filtered = getAllTasks()
     .filter((t) => hashes.has(t.accountHash))
     .map(sanitizeTaskForResponse);
-  logInfo(LOG_SCOPE, reqId, "list downloads completed", {
+  // 列表接口由前端每 2s 轮询一次，使用 debug 级日志避免刷屏
+  logDebug(LOG_SCOPE, reqId, "list downloads completed", {
     hashCount: hashes.size,
     resultCount: filtered.length,
     durationMs: durationMs(startedAt),

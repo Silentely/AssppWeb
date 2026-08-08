@@ -416,7 +416,10 @@
       "missingVersion": "Missing required version information",
       "invalidSinf": "Invalid sinf item",
       "noSinf": "No sinf found in response",
-      "tooManyRedirects": "Too many redirects"
+      "tooManyRedirects": "Too many redirects",
+      "missingVersionIdentifiers": "Missing version identifiers",
+      "noVersionsFound": "No versions found",
+      "missingReleaseDate": "Missing release date"
     },
     "purchase": {
       "paidNotSupported": "Purchasing paid apps is not supported",
@@ -438,6 +441,16 @@
       "missingAddress": "Missing address in response",
       "missingSessionToken": "Login response did not include an App Store session token",
       "unknownReason": "Authentication failed for an unknown reason"
+    },
+    "downloadTask": {
+      "timeout": "Download timed out",
+      "failed": "Download failed",
+      "tooLarge": "File exceeds the maximum allowed size",
+      "invalidPath": "Invalid file path"
+    },
+    "search": {
+      "loadFailed": "Failed to load app information",
+      "failed": "Search failed"
     }
   },
   "toast": {
@@ -462,6 +475,7 @@
     },
     "unknownAccount": "Unknown",
     "unknownError": "Unknown error",
-    "close": "Close notification"
+    "close": "Close notification",
+    "regionLabel": "Notifications"
   }
 }

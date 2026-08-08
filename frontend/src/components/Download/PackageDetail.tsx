@@ -8,6 +8,8 @@ import Badge from "../common/Badge";
 import ProgressBar from "../common/ProgressBar";
 import Modal from "../common/Modal";
 import ConfirmModal from "../common/ConfirmModal";
+import LoadingState from "../common/LoadingState";
+import Spinner from "../common/Spinner";
 import { useDownloads } from "../../hooks/useDownloads";
 import { useAccounts } from "../../hooks/useAccounts";
 import { useDownloadAction } from "../../hooks/useDownloadAction";
@@ -17,8 +19,9 @@ import { authHeaders } from "../../api/client";
 import { lookupApp } from "../../api/search";
 import { storeIdToCountry } from "../../apple/config";
 import { listVersions } from "../../apple/versionFinder";
-import { getAccountContext } from "../../utils/toast";
+import { getAccountContext, getTaskErrorMessage } from "../../utils/toast";
 import { isNewerVersion } from "../../utils/version";
+import { log } from "../../utils/log";
 import type { Software } from "../../types";
 
 const LOG_PREFIX = "[PackageDetail]";
@@ -46,9 +49,13 @@ export default function PackageDetail() {
   if (!task) {
     return (
       <PageContainer title={t("downloads.package.title")}>
-        <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-          {tasks.length === 0 ? t("loading") : t("downloads.package.notFound")}
-        </div>
+        {tasks.length === 0 ? (
+          <LoadingState label={t("loading")} />
+        ) : (
+          <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+            {t("downloads.package.notFound")}
+          </div>
+        )}
       </PageContainer>
     );
   }
@@ -100,7 +107,7 @@ export default function PackageDetail() {
     if (!installInfo) return;
 
     const urlToShare = installInfo.installUrl;
-    console.info(`${LOG_PREFIX} share start`, {
+    log.info(LOG_PREFIX, "share start", {
       taskId: currentTask.id,
       appId: currentTask.software.id,
       bundleID: currentTask.software.bundleID,
@@ -109,7 +116,7 @@ export default function PackageDetail() {
     try {
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(urlToShare);
-        console.info(`${LOG_PREFIX} share copied via clipboard API`, {
+        log.info(LOG_PREFIX, "share copied via clipboard API", {
           taskId: currentTask.id,
         });
       } else {
@@ -123,12 +130,12 @@ export default function PackageDetail() {
         textArea.select();
         document.execCommand("copy");
         document.body.removeChild(textArea);
-        console.info(`${LOG_PREFIX} share copied via execCommand`, {
+        log.info(LOG_PREFIX, "share copied via execCommand", {
           taskId: currentTask.id,
         });
       }
     } catch (err) {
-      console.warn(`${LOG_PREFIX} share copy failed`, {
+      log.warn(LOG_PREFIX, "share copy failed", {
         taskId: currentTask.id,
         message: err instanceof Error ? err.message : String(err),
       });
@@ -149,7 +156,7 @@ export default function PackageDetail() {
     if (!installInfo || !navigator.share) return;
     void navigator.share({ text: installInfo.installUrl }).catch((error) => {
       if (error instanceof DOMException && error.name === "AbortError") return;
-      console.warn(`${LOG_PREFIX} native share failed`, {
+      log.warn(LOG_PREFIX, "native share failed", {
         taskId: currentTask.id,
         message: error instanceof Error ? error.message : String(error),
       });
@@ -159,7 +166,7 @@ export default function PackageDetail() {
   async function handleCheckUpdate() {
     if (!task || !account) return;
     setCheckingUpdate(true);
-    console.info(`${LOG_PREFIX} check update start`, {
+    log.info(LOG_PREFIX, "check update start", {
       taskId: task.id,
       appId: task.software.id,
       bundleID: task.software.bundleID,
@@ -175,7 +182,7 @@ export default function PackageDetail() {
         setAvailableVersions(result.versions);
         setSelectedVersion(result.versions[0] || "");
         setShowUpdateModal(true);
-        console.info(`${LOG_PREFIX} update available`, {
+        log.info(LOG_PREFIX, "update available", {
           taskId: task.id,
           fromVersion: task.software.version,
           latestVersion: app.version,
@@ -183,13 +190,13 @@ export default function PackageDetail() {
         });
       } else {
         addToast(t("downloads.package.noUpdate"), "info");
-        console.info(`${LOG_PREFIX} no update available`, {
+        log.info(LOG_PREFIX, "no update available", {
           taskId: task.id,
           currentVersion: task.software.version,
         });
       }
     } catch (error) {
-      console.error(`${LOG_PREFIX} check update failed`, {
+      log.error(LOG_PREFIX, "check update failed", {
         taskId: task.id,
         message: error instanceof Error ? error.message : String(error),
       });
@@ -202,7 +209,7 @@ export default function PackageDetail() {
   async function handleConfirmUpdate() {
     if (!task || !account || !latestApp) return;
     setShowUpdateModal(false);
-    console.info(`${LOG_PREFIX} confirm update start`, {
+    log.info(LOG_PREFIX, "confirm update start", {
       taskId: task.id,
       appId: latestApp.id,
       bundleID: latestApp.bundleID,
@@ -218,13 +225,13 @@ export default function PackageDetail() {
         isLatest ? undefined : selectedVersion,
       );
       await deleteDownload(task.id);
-      console.info(`${LOG_PREFIX} confirm update completed`, {
+      log.info(LOG_PREFIX, "confirm update completed", {
         taskId: task.id,
         appId: latestApp.id,
       });
       navigate("/downloads");
     } catch (error) {
-      console.error(`${LOG_PREFIX} confirm update failed`, {
+      log.error(LOG_PREFIX, "confirm update failed", {
         taskId: task.id,
         message: error instanceof Error ? error.message : String(error),
       });
@@ -234,7 +241,7 @@ export default function PackageDetail() {
 
   async function handleDownloadIpa() {
     toastAction("toast.title.downloadIpaStarted");
-    console.info(`${LOG_PREFIX} ipa download start`, {
+    log.info(LOG_PREFIX, "ipa download start", {
       taskId: currentTask.id,
       appId: currentTask.software.id,
       bundleID: currentTask.software.bundleID,
@@ -254,13 +261,13 @@ export default function PackageDetail() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      console.info(`${LOG_PREFIX} ipa download completed`, {
+      log.info(LOG_PREFIX, "ipa download completed", {
         taskId: currentTask.id,
         status: res.status,
         sizeBytes: blob.size,
       });
     } catch (error) {
-      console.error(`${LOG_PREFIX} ipa download failed`, {
+      log.error(LOG_PREFIX, "ipa download failed", {
         taskId: currentTask.id,
         message: error instanceof Error ? error.message : String(error),
       });
@@ -304,7 +311,9 @@ export default function PackageDetail() {
         )}
 
         {task.error && (
-          <p className="text-sm text-red-500 dark:text-red-400">{task.error}</p>
+          <p className="text-sm text-red-500 dark:text-red-400">
+            {getTaskErrorMessage(task, t)}
+          </p>
         )}
 
         <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
@@ -351,8 +360,9 @@ export default function PackageDetail() {
                 <button
                   onClick={handleCheckUpdate}
                   disabled={checkingUpdate}
-                  className="px-4 py-2 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 transition-colors"
+                  className="inline-flex items-center gap-2 px-4 py-2 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 transition-colors"
                 >
+                  {checkingUpdate && <Spinner />}
                   {checkingUpdate
                     ? t("downloads.package.checkingUpdate")
                     : t("downloads.package.checkUpdate")}
@@ -362,7 +372,7 @@ export default function PackageDetail() {
                     <a
                       href={installInfo.installUrl}
                       onClick={() => {
-                        console.info(`${LOG_PREFIX} install url opened`, {
+                        log.info(LOG_PREFIX, "install url opened", {
                           taskId: task.id,
                           appId: task.software.id,
                           bundleID: task.software.bundleID,

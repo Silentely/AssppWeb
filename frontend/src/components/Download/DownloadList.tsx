@@ -6,6 +6,7 @@ import Modal from "../common/Modal";
 import ProgressBar from "../common/ProgressBar";
 import Spinner from "../common/Spinner";
 import ConfirmModal from "../common/ConfirmModal";
+import EmptyState from "../common/EmptyState";
 import { DownloadBoxIcon, SearchIcon } from "../common/icons";
 import DownloadItem from "./DownloadItem";
 import { useDownloads } from "../../hooks/useDownloads";
@@ -158,8 +159,9 @@ export default function DownloadList() {
           <button
             onClick={handleCheckAllUpdates}
             disabled={checkingAll}
-            className="px-4 py-2 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 transition-colors"
           >
+            {checkingAll && <Spinner />}
             {checkingAll
               ? t("downloads.checkingUpdates")
               : t("downloads.checkUpdates")}
@@ -213,32 +215,32 @@ export default function DownloadList() {
           {t("downloads.loading")}
         </div>
       ) : sortedTasks.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 px-4 my-4 bg-gray-50 dark:bg-gray-900/30 border-2 border-dashed border-gray-200 dark:border-gray-800 rounded-2xl">
-          <div className="bg-white dark:bg-gray-800 p-4 rounded-full shadow-sm mb-4 border border-gray-100 dark:border-gray-700">
-            <DownloadBoxIcon className="w-12 h-12 text-blue-500 dark:text-blue-400" />
-          </div>
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2 text-center">
-            {filter === "all"
+        <EmptyState
+          icon={<DownloadBoxIcon className="w-12 h-12 text-blue-500 dark:text-blue-400" />}
+          title={
+            filter === "all"
               ? t("downloads.emptyAll")
               : t("downloads.emptyFilter", {
                   status: t(`downloads.status.${filter}`),
-                })}
-          </h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-6 text-center max-w-sm">
-            {filter === "all"
+                })
+          }
+          description={
+            filter === "all"
               ? t("downloads.emptyAllDesc")
-              : t("downloads.emptyFilterDesc")}
-          </p>
-          {filter === "all" && (
-            <Link
-              to="/search"
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 hover:shadow-md transition-all active:scale-95"
-            >
-              <SearchIcon className="w-4 h-4" strokeWidth={2.5} />
-              {t("downloads.searchApps")}
-            </Link>
-          )}
-        </div>
+              : t("downloads.emptyFilterDesc")
+          }
+          action={
+            filter === "all" && (
+              <Link
+                to="/search"
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 hover:shadow-md transition-all active:scale-95"
+              >
+                <SearchIcon className="w-4 h-4" strokeWidth={2.5} />
+                {t("downloads.searchApps")}
+              </Link>
+            )
+          }
+        />
       ) : (
         <div className="space-y-2">
           {sortedTasks.map((task) => (

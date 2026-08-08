@@ -86,8 +86,12 @@ export function sanitizeTaskForResponse(
 }
 
 // --- 持久化：仅保存已完成任务的元数据（不含机密） ---
-function persistTasks() {
-  const completed = Array.from(tasks.values())
+// 使用防抖合并写入：批量完成/删除时避免反复全量写盘。
+let persistTimer: ReturnType<typeof setTimeout> | null = null;
+const PERSIST_DEBOUNCE_MS = 1000;
+
+function collectCompletedTasks() {
+  return Array.from(tasks.values())
     .filter((t) => t.status === "completed" && t.filePath)
     .map((t) => ({
       id: t.id,
@@ -99,10 +103,39 @@ function persistTasks() {
       progress: t.progress,
       speed: t.speed,
       filePath: t.filePath,
+      fileSize: t.fileSize,
       createdAt: t.createdAt,
     }));
-  fs.writeFileSync(TASKS_FILE, JSON.stringify(completed, null, 2));
 }
+
+function writeTasksFile() {
+  try {
+    fs.writeFileSync(
+      TASKS_FILE,
+      JSON.stringify(collectCompletedTasks(), null, 2),
+    );
+  } catch {
+    // 磁盘满等极端情况：跳过本次落盘，下次变更再重试
+  }
+}
+
+function persistTasks() {
+  if (persistTimer) clearTimeout(persistTimer);
+  persistTimer = setTimeout(() => {
+    persistTimer = null;
+    writeTasksFile();
+  }, PERSIST_DEBOUNCE_MS);
+}
+
+// 进程退出前把未落盘的变更写入，避免丢失最近完成的元数据
+function flushPersist() {
+  if (persistTimer) {
+    clearTimeout(persistTimer);
+    persistTimer = null;
+    writeTasksFile();
+  }
+}
+process.on("exit", flushPersist);
 
 // 自动清理：删除超过配置天数的已完成文件
 export function runTimeCleanup() {
@@ -231,6 +264,7 @@ function initOnStartup() {
               progress: 100,
               speed: "0 B/s",
               filePath: item.filePath,
+              fileSize: item.fileSize,
               createdAt: item.createdAt,
             };
             tasks.set(task.id, task);
@@ -478,6 +512,7 @@ async function startDownload(task: DownloadTask) {
   task.progress = 0;
   task.speed = "0 B/s";
   task.error = undefined;
+  task.errorCode = undefined;
   notifyProgress(task);
 
   // 净化路径段
@@ -499,6 +534,7 @@ async function startDownload(task: DownloadTask) {
     clearTaskTimeout(task.id);
     task.status = "failed";
     task.error = "Invalid path";
+    task.errorCode = "invalid-path";
     notifyProgress(task);
     logWarn(LOG_SCOPE, traceId, "download failed due to invalid path");
     return;
@@ -547,6 +583,13 @@ async function startDownload(task: DownloadTask) {
     task.status = "completed";
     task.progress = 100;
 
+    // 记录成品文件大小，供列表接口直接使用，避免重复 stat
+    try {
+      task.fileSize = fs.statSync(filePath).size;
+    } catch {
+      task.fileSize = undefined;
+    }
+
     // 编译成功后清除敏感数据
     task.downloadURL = "";
     task.sinfs = [];
@@ -577,6 +620,7 @@ async function startDownload(task: DownloadTask) {
       }
       task.status = "failed";
       task.error = "Download timed out";
+      task.errorCode = "timeout";
       notifyProgress(task);
       logWarn(LOG_SCOPE, traceId, "download aborted by timeout", {
         durationMs: Date.now() - startedAt,
@@ -585,11 +629,16 @@ async function startDownload(task: DownloadTask) {
     }
 
     task.status = "failed";
+    task.error = "Download failed";
+    // 文件过大是独立场景，映射专用错误码以便前端提示「大小超限」
+    task.errorCode =
+      err instanceof Error && err.message.startsWith("File too large")
+        ? "too-large"
+        : "failed";
     logError(LOG_SCOPE, traceId, "download failed", {
       message: safeErrorMessage(err),
       durationMs: Date.now() - startedAt,
     });
-    task.error = "Download failed";
     notifyProgress(task);
   }
 }

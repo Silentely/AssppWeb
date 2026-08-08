@@ -8,6 +8,7 @@ import MobileNav from "./components/Layout/MobileNav";
 import MobileHeader from "./components/Layout/MobileHeader";
 import ToastContainer from "./components/common/ToastContainer";
 import GlobalDownloadNotifier from "./components/common/GlobalDownloadNotifier";
+import LoadingState from "./components/common/LoadingState";
 import PasswordGate from "./components/Auth/PasswordGate";
 
 const HomePage = lazy(() => import("./components/Welcome/HomePage"));
@@ -26,11 +27,7 @@ const SettingsPage = lazy(() => import("./components/Settings/SettingsPage"));
 
 function Loading() {
   const { t } = useTranslation();
-  return (
-    <div className="p-8 text-center text-gray-500 dark:text-gray-400">
-      {t("loading")}
-    </div>
-  );
+  return <LoadingState label={t("loading")} />;
 }
 
 export default function App() {

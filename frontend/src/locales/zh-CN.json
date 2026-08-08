@@ -416,7 +416,10 @@
       "missingVersion": "缺少所需的版本信息",
       "invalidSinf": "无效的 sinf 项目",
       "noSinf": "响应中未找到 sinf",
-      "tooManyRedirects": "重定向次数过多"
+      "tooManyRedirects": "重定向次数过多",
+      "missingVersionIdentifiers": "缺少版本标识符",
+      "noVersionsFound": "未找到可用版本",
+      "missingReleaseDate": "缺少发布日期"
     },
     "purchase": {
       "paidNotSupported": "不支持购买付费应用",
@@ -438,6 +441,16 @@
       "missingAddress": "响应中缺少 address",
       "missingSessionToken": "登录响应中缺少 App Store 会话令牌",
       "unknownReason": "未知原因导致认证失败"
+    },
+    "downloadTask": {
+      "timeout": "下载超时",
+      "failed": "下载失败",
+      "tooLarge": "文件超过允许的最大大小",
+      "invalidPath": "文件路径无效"
+    },
+    "search": {
+      "loadFailed": "应用信息加载失败",
+      "failed": "搜索失败"
     }
   },
   "toast": {
@@ -462,6 +475,7 @@
     },
     "unknownAccount": "未知账号",
     "unknownError": "未知错误",
-    "close": "关闭通知"
+    "close": "关闭通知",
+    "regionLabel": "通知"
   }
 }

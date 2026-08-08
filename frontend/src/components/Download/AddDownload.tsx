@@ -3,6 +3,8 @@ import { useTranslation } from "react-i18next";
 import PageContainer from "../Layout/PageContainer";
 import AppIcon from "../common/AppIcon";
 import CountrySelect from "../common/CountrySelect";
+import EmptyState from "../common/EmptyState";
+import { PlusIcon } from "../common/icons";
 import { useAccounts } from "../../hooks/useAccounts";
 import { useDownloadAction } from "../../hooks/useDownloadAction";
 import { useSettingsStore } from "../../store/settings";
@@ -218,29 +220,11 @@ export default function AddDownload() {
         </form>
 
         {!app && !isLoading && (
-          <div className="flex flex-col items-center justify-center py-12 px-4 bg-gray-50 dark:bg-gray-900/30 border-2 border-dashed border-gray-200 dark:border-gray-800 rounded-2xl">
-            <div className="bg-white dark:bg-gray-800 p-4 rounded-full shadow-sm mb-4 border border-gray-100 dark:border-gray-700">
-              <svg
-                className="w-10 h-10 text-blue-500 dark:text-blue-400"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={1.5}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M12 9v6m3-3H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-            </div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2 text-center">
-              {t("downloads.add.emptyTitle")}
-            </h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400 text-center max-w-sm">
-              {t("downloads.add.emptyDesc")}
-            </p>
-          </div>
+          <EmptyState
+            icon={<PlusIcon className="w-10 h-10 text-blue-500 dark:text-blue-400" />}
+            title={t("downloads.add.emptyTitle")}
+            description={t("downloads.add.emptyDesc")}
+          />
         )}
 
         {app && (

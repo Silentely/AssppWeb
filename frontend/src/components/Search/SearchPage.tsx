@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import PageContainer from "../Layout/PageContainer";
 import AppIcon from "../common/AppIcon";
 import CountrySelect from "../common/CountrySelect";
+import EmptyState from "../common/EmptyState";
 import { SearchIcon } from "../common/icons";
 import { useSearch } from "../../hooks/useSearch";
 import { useAccounts } from "../../hooks/useAccounts";
@@ -32,9 +33,10 @@ export default function SearchPage() {
 
   useEffect(() => {
     if (error) {
-      addToast(error, "error");
+      // 后端错误原文（英文）不适合直接展示，使用本地化标题 + 保留详情
+      addToast(`${t("errors.search.failed")}\n${error}`, "error");
     }
-  }, [error, addToast]);
+  }, [error, addToast, t]);
 
   useEffect(() => {
     setSearchDefaults({ country: initialCountry, entity: defaultEntity });
@@ -104,17 +106,11 @@ export default function SearchPage() {
       </form>
 
       {results.length === 0 && !loading && !error && (
-        <div className="flex flex-col items-center justify-center py-16 px-4 bg-gray-50 dark:bg-gray-900/30 border-2 border-dashed border-gray-200 dark:border-gray-800 rounded-2xl">
-          <div className="bg-white dark:bg-gray-800 p-4 rounded-full shadow-sm mb-4 border border-gray-100 dark:border-gray-700">
-            <SearchIcon className="w-12 h-12 text-blue-500 dark:text-blue-400" />
-          </div>
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2 text-center">
-            {t("search.empty")}
-          </h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400 text-center max-w-sm">
-            {t("search.emptyDesc")}
-          </p>
-        </div>
+        <EmptyState
+          icon={<SearchIcon className="w-12 h-12 text-blue-500 dark:text-blue-400" />}
+          title={t("search.empty")}
+          description={t("search.emptyDesc")}
+        />
       )}
 
       <div className="space-y-2">

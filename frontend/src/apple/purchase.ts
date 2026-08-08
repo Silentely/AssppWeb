@@ -3,6 +3,7 @@ import { appleRequest } from "./request";
 import { buildPlist, parsePlist } from "./plist";
 import { extractAndMergeCookies } from "./cookies";
 import { purchaseAPIHost } from "./config";
+import { log } from "../utils/log";
 import i18n from "../i18n";
 
 export class PurchaseError extends Error {
@@ -133,7 +134,7 @@ async function purchaseWithParams(
     "X-Token": account.passwordToken,
   };
 
-  console.info(`${LOG_PREFIX} request start`, {
+  log.info(LOG_PREFIX, "request start", {
     host,
     path,
     appId: app.id,
@@ -152,7 +153,7 @@ async function purchaseWithParams(
     cookies: account.cookies,
   });
 
-  console.info(`${LOG_PREFIX} response received`, {
+  log.info(LOG_PREFIX, "response received", {
     status: response.status,
     statusText: response.statusText,
     bodyLength: response.body.length,
@@ -184,7 +185,7 @@ async function purchaseWithParams(
   const rootKeys = Object.keys(dict).slice(0, 20);
   const dialogKeys = dialog ? Object.keys(dialog).slice(0, 20) : [];
 
-  console.info(`${LOG_PREFIX} parsed response`, {
+  log.info(LOG_PREFIX, "parsed response", {
     appId: app.id,
     bundleID: app.bundleID,
     failureType: failureType ?? "",
@@ -196,7 +197,7 @@ async function purchaseWithParams(
   });
 
   if (failureType) {
-    console.warn(`${LOG_PREFIX} response has failureType`, {
+    log.warn(LOG_PREFIX, "response has failureType", {
       appId: app.id,
       bundleID: app.bundleID,
       failureType,
@@ -258,15 +259,12 @@ async function purchaseWithParams(
 
   if (status === 0) {
     if (jingleDocType && jingleDocType !== "purchaseSuccess") {
-      console.warn(
-        `${LOG_PREFIX} success status with unexpected jingleDocType`,
-        {
-          appId: app.id,
-          bundleID: app.bundleID,
-          jingleDocType,
-          pricingParameters,
-        },
-      );
+      log.warn(LOG_PREFIX, "success status with unexpected jingleDocType", {
+        appId: app.id,
+        bundleID: app.bundleID,
+        jingleDocType,
+        pricingParameters,
+      });
     }
     return { updatedCookies };
   }
@@ -274,7 +272,7 @@ async function purchaseWithParams(
   const statusCode = toOptionalString(status);
   const genericCode = statusCode ?? jingleDocType ?? "unknown";
 
-  console.error(`${LOG_PREFIX} purchase failed without failureType`, {
+  log.error(LOG_PREFIX, "purchase failed without failureType", {
     appId: app.id,
     bundleID: app.bundleID,
     status: status ?? "",

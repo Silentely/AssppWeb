@@ -5,6 +5,7 @@ import AppIcon from "../common/AppIcon";
 import Badge from "../common/Badge";
 import ProgressBar from "../common/ProgressBar";
 import type { DownloadTask } from "../../types";
+import { getTaskErrorMessage } from "../../utils/toast";
 
 interface DownloadItemProps {
   task: DownloadTask;
@@ -64,7 +65,7 @@ const DownloadItem = memo(function DownloadItem({
 
           {task.error && (
             <p className="mt-2 text-xs text-red-600 dark:text-red-400 font-medium bg-red-50 dark:bg-red-900/20 p-2 rounded-md border border-red-100 dark:border-red-900/30">
-              {task.error}
+              {getTaskErrorMessage(task, t)}
             </p>
           )}
 

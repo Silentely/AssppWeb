@@ -26,6 +26,22 @@
   animation: toast-slide-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+/* toast 移除前的滑出动画：先标记 leaving 再播放，播完才真正卸载 */
+@keyframes toast-slide-out {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(120%);
+    opacity: 0;
+  }
+}
+
+@utility animate-toast-out {
+  animation: toast-slide-out 0.3s cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
 /* 键盘导航焦点环：仅键盘操作时显示，避免鼠标点击留下焦点框 */
 :focus-visible {
   outline: 2px solid #2563eb;

@@ -3,6 +3,7 @@ import { appleRequest } from "./request";
 import { buildPlist, parsePlist } from "./plist";
 import { extractAndMergeCookies } from "./cookies";
 import { storeAPIHost } from "./config";
+import i18n from "../i18n";
 
 export async function getVersionMetadata(
   account: Account,
@@ -20,7 +21,7 @@ export async function getVersionMetadata(
   let redirectAttempt = 0;
 
   while (redirectAttempt <= 3) {
-    const payload: Record<string, any> = {
+    const payload: Record<string, string | number> = {
       creditDisplay: "",
       guid: deviceId,
       salableAdamId: app.id,
@@ -49,7 +50,7 @@ export async function getVersionMetadata(
     if (response.status === 302) {
       const location = response.headers["location"];
       if (!location) {
-        throw new Error("Failed to retrieve redirect location");
+        throw new Error(i18n.t("errors.download.redirectLocation"));
       }
       const url = new URL(location);
       requestHost = url.hostname;
@@ -62,24 +63,24 @@ export async function getVersionMetadata(
 
     const songList = dict.songList as Record<string, any>[] | undefined;
     if (!songList || songList.length === 0) {
-      throw new Error("No items in response");
+      throw new Error(i18n.t("errors.download.noItems"));
     }
 
     const item = songList[0];
-    const itemMetadata = item.metadata as Record<string, any>;
+    const itemMetadata = item.metadata as Record<string, any> | undefined;
     if (!itemMetadata) {
-      throw new Error("Missing metadata");
+      throw new Error(i18n.t("errors.download.missingMetadata"));
     }
 
     const bundleShortVersionString =
-      itemMetadata.bundleShortVersionString as string;
+      itemMetadata.bundleShortVersionString as string | undefined;
     if (!bundleShortVersionString) {
-      throw new Error("Missing bundleShortVersionString");
+      throw new Error(i18n.t("errors.download.missingVersion"));
     }
 
     const rawReleaseDate = itemMetadata.releaseDate;
     if (!rawReleaseDate) {
-      throw new Error("Missing releaseDate");
+      throw new Error(i18n.t("errors.download.missingReleaseDate"));
     }
     const releaseDate =
       rawReleaseDate instanceof Date
@@ -95,5 +96,5 @@ export async function getVersionMetadata(
     };
   }
 
-  throw new Error("Too many redirects");
+  throw new Error(i18n.t("errors.download.tooManyRedirects"));
 }

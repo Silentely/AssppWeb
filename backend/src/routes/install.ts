@@ -185,6 +185,8 @@ router.get("/install/:id/icon-small.png", (_req: Request, res: Response) => {
   const png = getWhitePng();
   res.setHeader("Content-Type", "image/png");
   res.setHeader("Content-Length", png.length);
+  // 占位图固定不变，允许客户端长期缓存
+  res.setHeader("Cache-Control", "public, max-age=86400, immutable");
   res.send(png);
 });
 
@@ -193,6 +195,8 @@ router.get("/install/:id/icon-large.png", (_req: Request, res: Response) => {
   const png = getWhitePng();
   res.setHeader("Content-Type", "image/png");
   res.setHeader("Content-Length", png.length);
+  // 占位图固定不变，允许客户端长期缓存
+  res.setHeader("Cache-Control", "public, max-age=86400, immutable");
   res.send(png);
 });
 

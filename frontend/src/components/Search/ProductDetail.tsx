@@ -3,11 +3,15 @@ import { useParams, useLocation, Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import PageContainer from "../Layout/PageContainer";
 import AppIcon from "../common/AppIcon";
+import LoadingState from "../common/LoadingState";
+import Spinner from "../common/Spinner";
 import { useAccounts } from "../../hooks/useAccounts";
 import { useDownloadAction } from "../../hooks/useDownloadAction";
+import { useToastStore } from "../../store/toast";
 import { lookupApp } from "../../api/search";
 import { useUiPreferencesStore } from "../../store/uiPreferences";
 import { useSettingsStore } from "../../store/settings";
+import { storeIdToCountry } from "../../apple/config";
 import { preferredAccountEmail } from "../../utils/accountSelection";
 import type { Software } from "../../types";
 
@@ -19,6 +23,7 @@ export default function ProductDetail() {
     useUiPreferencesStore();
   const { defaultCountry } = useSettingsStore();
   const { t } = useTranslation();
+  const addToast = useToastStore((s) => s.addToast);
   const {
     startDownload,
     acquireLicense,
@@ -38,6 +43,11 @@ export default function ProductDetail() {
   >(null);
   const appliedInitialAccount = useRef(false);
 
+  // 当前所选地区的账号；为空时提示用户可能缺少该地区账号
+  const regionAccounts = accounts.filter(
+    (a) => storeIdToCountry(a.store) === country,
+  );
+
   const account = accounts.find((a) => a.email === selectedAccount);
 
   useEffect(() => {
@@ -50,9 +60,11 @@ export default function ProductDetail() {
         })
         .catch(() => {
           setLoading(false);
+          // 网络或服务端错误与「未找到应用」区分开，避免误导
+          addToast(t("errors.search.loadFailed"), "error");
         });
     }
-  }, [appId, stateApp, country]);
+  }, [appId, stateApp, country, addToast, t]);
 
   useEffect(() => {
     if (accounts.length > 0) {
@@ -76,7 +88,7 @@ export default function ProductDetail() {
   if (loading) {
     return (
       <PageContainer title={t("search.product.title")}>
-        <div className="text-center text-gray-500 py-12">{t("loading")}</div>
+        <LoadingState label={t("loading")} />
       </PageContainer>
     );
   }
@@ -148,6 +160,11 @@ export default function ProductDetail() {
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 {t("search.product.account")}
               </label>
+              {regionAccounts.length === 0 && (
+                <p className="mb-2 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-md p-2">
+                  {t("search.product.noAccountsForRegion")}
+                </p>
+              )}
               <select
                 value={selectedAccount}
                 onChange={(e) => {
@@ -169,8 +186,9 @@ export default function ProductDetail() {
                 <button
                   onClick={handlePurchase}
                   disabled={loadingAction !== null}
-                  className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
                 >
+                  {loadingAction === "purchase" && <Spinner />}
                   {loadingAction === "purchase"
                     ? t("search.product.processing")
                     : t("search.product.getLicense")}
@@ -181,8 +199,9 @@ export default function ProductDetail() {
                   <button
                     onClick={handleDownload}
                     disabled={loadingAction !== null}
-                    className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
                   >
+                    {loadingAction === "download" && <Spinner />}
                     {loadingAction === "download"
                       ? t("search.product.processing")
                       : t("search.product.download")}

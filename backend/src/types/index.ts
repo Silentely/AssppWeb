@@ -41,6 +41,10 @@ export interface DownloadTask {
   progress: number;
   speed: string;
   error?: string;
+  /** 稳定的机器可读错误码，前端据此展示本地化文案（如 "timeout"、"too-large"） */
+  errorCode?: string;
+  /** 成品文件大小（字节），任务完成时记录，避免列表接口重复 stat */
+  fileSize?: number;
   filePath?: string;
   createdAt: string;
 }

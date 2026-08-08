@@ -395,7 +395,7 @@ Always pair light and dark variants consistently:
 
 When the same UI pattern appears in 3+ components, extract it to `components/common/`. Current shared components:
 
-- `Alert`, `Modal`, `Spinner`, `CountrySelect`, `AppIcon`, `Badge`, `ProgressBar`, `icons`
+- `Alert`, `Modal`, `Spinner`, `CountrySelect`, `AppIcon`, `Badge`, `ProgressBar`, `icons`, `EmptyState`, `LoadingState`
 
 When adding new common components, update this AGENTS.md file accordingly.
 

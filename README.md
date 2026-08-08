@@ -78,6 +78,7 @@ docker compose up -d
 | `SERPAPI_KEY`                               | _(none)_        | SerpApi API key for App Store search/lookup (`engine=apple_app_store`)                      |
 | `SERPAPI_TIMEOUT_MS`                        | `15000`         | Timeout (ms) for SerpApi and legacy search upstream requests                                 |
 | `SEARCH_DEBUG`                              | `false`         | Enable verbose backend search route logs for troubleshooting (`[SearchRoute][<requestId>] [debug]`) |
+| `LOG_DEBUG`                                 | `false`         | Enable debug-level logs for high-frequency polling endpoints (`/api/downloads`, `/api/packages`) |
 | `ACCESS_PASSWORD`                           | _(none)_        | Require a password to access the web UI and API (empty to disable)                          |
 
 **Request-Scoped Logs**

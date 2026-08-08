@@ -416,7 +416,10 @@
       "missingVersion": "缺少所需的版本資訊",
       "invalidSinf": "無效的 sinf 項目",
       "noSinf": "回應中找不到 sinf",
-      "tooManyRedirects": "重新導向次數過多"
+      "tooManyRedirects": "重新導向次數過多",
+      "missingVersionIdentifiers": "缺少版本識別碼",
+      "noVersionsFound": "找不到可用版本",
+      "missingReleaseDate": "缺少發佈日期"
     },
     "purchase": {
       "paidNotSupported": "不支援購買付費應用程式",
@@ -438,6 +441,16 @@
       "missingAddress": "回應中缺少 address",
       "missingSessionToken": "登入回應中缺少 App Store 工作階段代號",
       "unknownReason": "未知原因導致認證失敗"
+    },
+    "downloadTask": {
+      "timeout": "下載逾時",
+      "failed": "下載失敗",
+      "tooLarge": "檔案超過允許的最大大小",
+      "invalidPath": "檔案路徑無效"
+    },
+    "search": {
+      "loadFailed": "應用程式資訊載入失敗",
+      "failed": "搜尋失敗"
     }
   },
   "toast": {
@@ -462,6 +475,7 @@
     },
     "unknownAccount": "未知帳號",
     "unknownError": "未知錯誤",
-    "close": "關閉通知"
+    "close": "關閉通知",
+    "regionLabel": "通知"
   }
 }

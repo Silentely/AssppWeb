@@ -3,6 +3,8 @@ import { useParams, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import PageContainer from "../Layout/PageContainer";
 import AppIcon from "../common/AppIcon";
+import LoadingState from "../common/LoadingState";
+import Spinner from "../common/Spinner";
 import { useAccounts } from "../../hooks/useAccounts";
 import { useDownloadAction } from "../../hooks/useDownloadAction";
 import { lookupApp } from "../../api/search";
@@ -127,14 +129,16 @@ export default function VersionHistory() {
         })
         .catch(() => {
           setLoadingApp(false);
+          // 网络或服务端错误与「未找到应用」区分开，避免误导
+          addToast(t("errors.search.loadFailed"), "error");
         });
     }
-  }, [appId, stateApp, app, country]);
+  }, [appId, stateApp, app, country, addToast, t]);
 
   if (loadingApp) {
     return (
       <PageContainer title={t("search.versions.title")}>
-        <div className="text-center text-gray-500 py-12">{t("loading")}</div>
+        <LoadingState label={t("loading")} />
       </PageContainer>
     );
   }
@@ -186,8 +190,9 @@ export default function VersionHistory() {
             <button
               onClick={loadVersions}
               disabled={loading || !account}
-              className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors whitespace-nowrap"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors whitespace-nowrap"
             >
+              {loading && <Spinner />}
               {loading
                 ? t("search.versions.loading")
                 : t("search.versions.load")}
@@ -225,7 +230,8 @@ export default function VersionHistory() {
                       </button>
                     )}
                     {!meta && isLoadingMeta && (
-                      <span className="text-xs text-gray-400 dark:text-gray-500">
+                      <span className="inline-flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500">
+                        <Spinner />
                         {t("search.versions.loading")}
                       </span>
                     )}

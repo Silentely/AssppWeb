@@ -1,6 +1,7 @@
 import { authHeaders } from "../api/client";
 import { parsePlist } from "./plist";
 import { defaultAuthURL, normalizeAuthURL } from "./authEndpoint";
+import { log } from "../utils/log";
 
 export { defaultAuthURL };
 
@@ -17,8 +18,10 @@ export async function fetchBag(deviceId: string): Promise<BagOutput> {
     });
     if (!resp.ok) {
       const err = await resp.json().catch(() => ({ error: resp.statusText }));
-      console.warn(
-        `[Bag] Proxy request failed, using default auth endpoint: ${err.error || `HTTP ${resp.status}`}`,
+      log.warn(
+        "Bag",
+        "Proxy request failed, using default auth endpoint",
+        { error: err.error || `HTTP ${resp.status}` },
       );
       return { authURL: defaultAuthURL };
     }
@@ -34,19 +37,18 @@ export async function fetchBag(deviceId: string): Promise<BagOutput> {
     }
 
     if (!authURL) {
-      console.warn(
-        "[Bag] authenticateAccount URL not found in bag, using default auth endpoint",
+      log.warn(
+        "Bag",
+        "authenticateAccount URL not found in bag, using default auth endpoint",
       );
       return { authURL: defaultAuthURL };
     }
 
     return { authURL: normalizeAuthURL(authURL) };
   } catch (error) {
-    console.warn(
-      `[Bag] Failed to fetch/parse bag, using default auth endpoint: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
-    );
+    log.warn("Bag", "Failed to fetch/parse bag, using default auth endpoint", {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return { authURL: defaultAuthURL };
   }
 }

@@ -39,6 +39,8 @@ export class ChunkedDownloader {
   private totalSize = 0;
   private lastProgressTime = 0;
   private lastProgressBytes = 0;
+  /** 累计已下载字节数，避免每次进度计算时对 chunkBytes 全量求和 */
+  private downloadedBytes = 0;
 
   constructor(
     url: string,
@@ -123,6 +125,8 @@ export class ChunkedDownloader {
         const reader = res.body.getReader();
         const chunkBytesRef = this.chunkBytes;
         const chunkIndex = chunk.index;
+        // 跨分块共享的累计字节数：各分块的 read 回调向 self.downloadedBytes 增量写入
+        const self = this;
         let chunkDownloaded = 0;
 
         const readable = new Readable({
@@ -141,6 +145,8 @@ export class ChunkedDownloader {
                 return;
               }
               chunkBytesRef[chunkIndex] = chunkDownloaded;
+              // 累计增量，进度 tick 直接读取，避免对 chunkBytes 全量求和
+              self.downloadedBytes += value.byteLength;
               this.push(Buffer.from(value));
             } catch (err) {
               this.destroy(err instanceof Error ? err : new Error(String(err)));
@@ -291,12 +297,13 @@ export class ChunkedDownloader {
     this.totalSize = contentLength;
     const chunks = this.splitChunks(contentLength);
     this.chunkBytes = new Array(chunks.length).fill(0);
+    this.downloadedBytes = 0;
 
     this.lastProgressTime = Date.now();
     this.lastProgressBytes = 0;
     const progressInterval = setInterval(() => {
       const now = Date.now();
-      const totalDownloaded = this.chunkBytes.reduce((a, b) => a + b, 0);
+      const totalDownloaded = this.downloadedBytes;
       const elapsed = now - this.lastProgressTime;
 
       let speed = "0 B/s";

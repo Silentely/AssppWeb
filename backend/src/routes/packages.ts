@@ -9,6 +9,7 @@ import {
   durationMs,
   getRequestId,
   logInfo,
+  logDebug,
   logWarn,
   maskAccountHash,
 } from "../utils/requestLog.js";
@@ -56,17 +57,26 @@ router.get("/packages", (req: Request, res: Response) => {
   for (const task of completedTasks) {
     if (!task.filePath || !fs.existsSync(task.filePath)) continue;
 
-    const stats = fs.statSync(task.filePath);
+    // 优先使用任务完成时缓存的大小，避免对每个文件重复 stat
+    let fileSize = task.fileSize;
+    if (fileSize === undefined) {
+      try {
+        fileSize = fs.statSync(task.filePath).size;
+      } catch {
+        continue;
+      }
+    }
     packages.push({
       id: task.id,
       software: task.software,
       accountHash: task.accountHash,
-      fileSize: stats.size,
+      fileSize,
       createdAt: task.createdAt,
     });
   }
 
-  logInfo(LOG_SCOPE, reqId, "list packages completed", {
+  // 首页/下载页均会轮询该接口，使用 debug 级日志避免刷屏
+  logDebug(LOG_SCOPE, reqId, "list packages completed", {
     hashCount: hashes.size,
     resultCount: packages.length,
     durationMs: durationMs(startedAt),
@@ -131,12 +141,12 @@ router.get("/packages/:id/file", (req: Request, res: Response) => {
   res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
   res.setHeader("Content-Type", "application/octet-stream");
 
-  const stats = fs.statSync(resolvedPath);
-  res.setHeader("Content-Length", stats.size);
+  const fileSize = task.fileSize ?? fs.statSync(resolvedPath).size;
+  res.setHeader("Content-Length", fileSize);
   logInfo(LOG_SCOPE, reqId, "download package file stream started", {
     packageId: id,
     accountHash: maskAccountHash(accountHash),
-    fileSizeBytes: stats.size,
+    fileSizeBytes: fileSize,
     durationMs: durationMs(startedAt),
   });
 

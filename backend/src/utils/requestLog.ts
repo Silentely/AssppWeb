@@ -1,18 +1,25 @@
 import type { Response } from "express";
 
-const CONSOLE_METHOD: Record<string, "log" | "warn" | "error"> = {
+const CONSOLE_METHOD: Record<string, "log" | "warn" | "error" | "debug"> = {
   info: "log",
   warn: "warn",
   error: "error",
+  debug: "debug",
 };
 
+// 调试日志开关：默认静默，避免高频轮询接口刷屏；排障时设 LOG_DEBUG=true
+const DEBUG_ENABLED = process.env.LOG_DEBUG === "true";
+
 function write(
-  level: "info" | "warn" | "error",
+  level: "info" | "warn" | "error" | "debug",
   scope: string,
   requestId: string,
   message: string,
   meta?: Record<string, unknown>,
 ): void {
+  if (level === "debug" && !DEBUG_ENABLED) {
+    return;
+  }
   const line = `[${new Date().toISOString()}] [${scope}] [${requestId}] ${message}`;
   const method = CONSOLE_METHOD[level];
   if (meta) {
@@ -55,6 +62,17 @@ export function logError(
   meta?: Record<string, unknown>,
 ): void {
   write("error", scope, requestId, message, meta);
+}
+
+// 调试级日志：仅 LOG_DEBUG=true 时输出。
+// 用于高频轮询等噪音来源，默认静默但保留排障能力。
+export function logDebug(
+  scope: string,
+  requestId: string,
+  message: string,
+  meta?: Record<string, unknown>,
+): void {
+  write("debug", scope, requestId, message, meta);
 }
 
 // 系统级日志：无请求上下文时使用固定 scope 与 requestId，

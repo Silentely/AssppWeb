@@ -1,5 +1,6 @@
 import { useState, useEffect, type FormEvent, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import LoadingState from "../common/LoadingState";
 
 const SESSION_KEY = "auth-token";
 
@@ -91,7 +92,7 @@ export default function PasswordGate({ children }: { children: ReactNode }) {
   if (status === "loading") {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center">
-        <p className="text-gray-500 dark:text-gray-400">{t("loading")}</p>
+        <LoadingState label={t("loading")} />
       </div>
     );
   }

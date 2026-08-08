@@ -113,11 +113,11 @@ export default function SettingsPage() {
         throw new Error("invalid-format");
       }
       const valid = parsed.filter(
-        (item: any) =>
-          item &&
+        (item): item is Account =>
+          item !== null &&
           typeof item === "object" &&
-          typeof item.email === "string" &&
-          item.email.length > 0,
+          typeof (item as Record<string, unknown>).email === "string" &&
+          ((item as Record<string, unknown>).email as string).length > 0,
       ) as Account[];
       if (valid.length === 0) {
         throw new Error("no-valid-accounts");

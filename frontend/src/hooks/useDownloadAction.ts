@@ -11,6 +11,7 @@ import { lookupApp } from "../api/search";
 import { accountHash } from "../utils/account";
 import { getErrorMessage } from "../utils/error";
 import { getAccountContext } from "../utils/toast";
+import { log } from "../utils/log";
 import type { Account, Software } from "../types";
 
 const LOG_PREFIX = "[DownloadAction]";
@@ -42,7 +43,7 @@ export function useDownloadAction() {
     app: Software,
   ): Promise<Software> {
     const country = storeIdToCountry(account.store) ?? "US";
-    console.info(`${LOG_PREFIX} app normalization start`, {
+    log.info(LOG_PREFIX, "app normalization start", {
       appId: app.id,
       bundleID: app.bundleID,
       country,
@@ -51,14 +52,14 @@ export function useDownloadAction() {
       const resolved = await lookupApp(app.bundleID, country);
       if (resolved?.id) {
         if (resolved.id !== app.id) {
-          console.warn(`${LOG_PREFIX} app id normalized from lookup`, {
+          log.warn(LOG_PREFIX, "app id normalized from lookup", {
             originalId: app.id,
             resolvedId: resolved.id,
             bundleID: app.bundleID,
             country,
           });
         }
-        console.info(`${LOG_PREFIX} app normalization completed`, {
+        log.info(LOG_PREFIX, "app normalization completed", {
           sourceId: app.id,
           effectiveId: resolved.id,
           bundleID: resolved.bundleID,
@@ -67,14 +68,14 @@ export function useDownloadAction() {
         return resolved;
       }
     } catch (error) {
-      console.warn(`${LOG_PREFIX} app normalization lookup failed`, {
+      log.warn(LOG_PREFIX, "app normalization lookup failed", {
         bundleID: app.bundleID,
         country,
         message: getErrorMessage(error, "lookup failed"),
       });
     }
 
-    console.warn(`${LOG_PREFIX} app normalization fallback to original`, {
+    log.warn(LOG_PREFIX, "app normalization fallback to original", {
       appId: app.id,
       bundleID: app.bundleID,
       country,
@@ -87,7 +88,7 @@ export function useDownloadAction() {
     app: Software,
     versionId?: string,
   ) {
-    console.info(`${LOG_PREFIX} start download flow`, {
+    log.info(LOG_PREFIX, "start download flow", {
       appId: app.id,
       bundleID: app.bundleID,
       versionId: versionId ?? "",
@@ -117,7 +118,7 @@ export function useDownloadAction() {
       }
     } catch {
       // 设置获取失败时由后端兜底执行同一大小限制
-      console.warn(`${LOG_PREFIX} settings pre-check failed, continue`, {
+      log.warn(LOG_PREFIX, "settings pre-check failed, continue", {
         appId: effectiveApp.id,
         bundleID: effectiveApp.bundleID,
       });
@@ -136,7 +137,7 @@ export function useDownloadAction() {
     }
 
     const { output, updatedCookies } = downloadResult;
-    console.info(`${LOG_PREFIX} apple download info acquired`, {
+    log.info(LOG_PREFIX, "apple download info acquired", {
       appId: effectiveApp.id,
       bundleID: effectiveApp.bundleID,
       version: output.bundleShortVersionString,
@@ -156,7 +157,7 @@ export function useDownloadAction() {
       sinfs: output.sinfs,
       iTunesMetadata: output.iTunesMetadata,
     });
-    console.info(`${LOG_PREFIX} backend download task created`, {
+    log.info(LOG_PREFIX, "backend download task created", {
       appId: effectiveApp.id,
       bundleID: effectiveApp.bundleID,
       accountHash: hash,
@@ -176,7 +177,7 @@ export function useDownloadAction() {
   }
 
   async function acquireLicense(account: Account, app: Software) {
-    console.info(`${LOG_PREFIX} acquire license flow`, {
+    log.info(LOG_PREFIX, "acquire license flow", {
       appId: app.id,
       bundleID: app.bundleID,
       store: account.store,
@@ -199,7 +200,7 @@ export function useDownloadAction() {
     }
 
     await updateAccount({ ...currentAccount, cookies: result.updatedCookies });
-    console.info(`${LOG_PREFIX} license acquired`, {
+    log.info(LOG_PREFIX, "license acquired", {
       appId: effectiveApp.id,
       bundleID: effectiveApp.bundleID,
       store: currentAccount.store,
@@ -219,7 +220,7 @@ export function useDownloadAction() {
 
   function toastDownloadError(account: Account, app: Software, error: unknown) {
     const ctx = getAccountContext(account, t);
-    console.error(`${LOG_PREFIX} download flow failed`, {
+    log.error(LOG_PREFIX, "download flow failed", {
       appId: app.id,
       bundleID: app.bundleID,
       store: account.store,
@@ -240,7 +241,7 @@ export function useDownloadAction() {
 
   function toastLicenseError(account: Account, app: Software, error: unknown) {
     const ctx = getAccountContext(account, t);
-    console.error(`${LOG_PREFIX} license flow failed`, {
+    log.error(LOG_PREFIX, "license flow failed", {
       appId: app.id,
       bundleID: app.bundleID,
       store: account.store,

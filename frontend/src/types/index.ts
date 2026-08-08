@@ -76,6 +76,7 @@ export interface DownloadTask {
   progress: number;
   speed: string;
   error?: string;
+  errorCode?: string;
   hasFile?: boolean;
   createdAt: string;
 }

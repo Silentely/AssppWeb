@@ -1,9 +1,6 @@
-import { useTranslation } from "react-i18next";
 import ThemeToggle from "../common/ThemeToggle";
 
 export default function MobileHeader() {
-  const { t } = useTranslation();
-
   return (
     <>
       {/* 使用 fixed 替代 sticky，防止 PWA 下拉出现空白缝隙，保留 safe-top */}

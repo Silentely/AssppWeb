@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useDownloads } from "../../hooks/useDownloads";
 import { useAccounts } from "../../hooks/useAccounts";
 import { useToastStore } from "../../store/toast";
-import { getAccountContext } from "../../utils/toast";
+import { getAccountContext, getTaskErrorMessage } from "../../utils/toast";
 import type { DownloadTask } from "../../types";
 
 /**
@@ -68,7 +68,7 @@ export default function GlobalDownloadNotifier() {
             appName,
             version: ` v${task.software.version}`,
             ...ctx,
-            error: task.error || t("toast.unknownError"),
+            error: getTaskErrorMessage(task, t),
           }),
           "error",
           t("toast.title.downloadFailed"),
