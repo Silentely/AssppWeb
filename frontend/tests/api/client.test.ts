@@ -29,6 +29,29 @@ describe("api/client", () => {
 
       await expect(apiGet("/api/missing")).rejects.toThrow("Not found");
     });
+
+    it("should extract clean error message from JSON error body", async () => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
+        ok: false,
+        text: () => Promise.resolve(JSON.stringify({ error: "Download not found" })),
+      } as Response);
+
+      await expect(apiGet("/api/downloads/123")).rejects.toThrow(
+        "Download not found",
+      );
+    });
+
+    it("should fall back to status message for empty error body", async () => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
+        ok: false,
+        status: 502,
+        text: () => Promise.resolve(""),
+      } as Response);
+
+      await expect(apiGet("/api/boom")).rejects.toThrow(
+        "Request failed with status 502",
+      );
+    });
   });
 
   describe("apiPost", () => {

@@ -25,3 +25,26 @@
 @utility animate-toast-in {
   animation: toast-slide-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+/* 键盘导航焦点环：仅键盘操作时显示，避免鼠标点击留下焦点框 */
+:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+.dark :focus-visible {
+  outline-color: #60a5fa;
+}
+
+/* 用户偏好减少动态效果时，关闭动画与过渡，避免诱发不适 */
+@media (prefers-reduced-motion: reduce) {
+  .animate-toast-in {
+    animation: none;
+  }
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

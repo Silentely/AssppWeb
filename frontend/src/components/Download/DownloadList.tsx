@@ -1,20 +1,20 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import PageContainer from "../Layout/PageContainer";
-import DownloadItem from "./DownloadItem";
 import Modal from "../common/Modal";
 import ProgressBar from "../common/ProgressBar";
 import Spinner from "../common/Spinner";
+import ConfirmModal from "../common/ConfirmModal";
 import { DownloadBoxIcon, SearchIcon } from "../common/icons";
+import DownloadItem from "./DownloadItem";
 import { useDownloads } from "../../hooks/useDownloads";
 import { useAccounts } from "../../hooks/useAccounts";
 import { useDownloadAction } from "../../hooks/useDownloadAction";
 import { useToastStore } from "../../store/toast";
 import { lookupApp } from "../../api/search";
-import { storeIdToCountry } from "../../apple/config";
-import { getAccountContext } from "../../utils/toast";
 import { isNewerVersion } from "../../utils/version";
+import { storeIdToCountry } from "../../apple/config";
 import type { DownloadTask } from "../../types";
 
 type StatusFilter = "all" | DownloadTask["status"];
@@ -43,6 +43,8 @@ export default function DownloadList() {
     total: 0,
     appName: "",
   });
+  // 待确认删除的任务 id：非空时展示确认对话框
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
   useEffect(() => {
     return () => {
@@ -50,36 +52,38 @@ export default function DownloadList() {
     };
   }, []);
 
-  const filtered =
-    filter === "all" ? tasks : tasks.filter((t) => t.status === filter);
+  const deleteTarget = tasks.find((t) => t.id === deleteTargetId) ?? null;
 
-  const sortedTasks = [...filtered].sort((a, b) => {
-    const timeA = new Date(a.createdAt || 0).getTime();
-    const timeB = new Date(b.createdAt || 0).getTime();
-    return timeB - timeA;
-  });
+  // 排序结果 memo 化：弹窗开合等无关重渲染时避免重复排序
+  const sortedTasks = useMemo(() => {
+    const list =
+      filter === "all" ? tasks : tasks.filter((t) => t.status === filter);
+    return [...list].sort((a, b) => {
+      const timeA = new Date(a.createdAt || 0).getTime();
+      const timeB = new Date(b.createdAt || 0).getTime();
+      return timeB - timeA;
+    });
+  }, [tasks, filter]);
 
-  function handleDelete(id: string) {
-    if (!confirm(t("downloads.deleteConfirm"))) return;
+  const handleDelete = useCallback((id: string) => {
+    setDeleteTargetId(id);
+  }, []);
 
-    const task = tasks.find((t) => t.id === id);
-    if (task) {
-      const accountEmail = hashToEmail[task.accountHash];
-      const account = accounts.find((a) => a.email === accountEmail);
-      const ctx = getAccountContext(account, t);
+  function confirmDelete() {
+    if (!deleteTarget) return;
+    const task = deleteTarget;
 
-      addToast(
-        t("toast.msg", {
-          appName: task.software.name,
-          version: ` v${task.software.version}`,
-          ...ctx,
-        }),
-        "success",
-        t("toast.title.deleteSuccess"),
-      );
-    }
+    addToast(
+      t("toast.msgDeleted", {
+        appName: task.software.name,
+        version: ` v${task.software.version}`,
+      }),
+      "success",
+      t("toast.title.deleteSuccess"),
+    );
 
-    deleteDownload(id);
+    setDeleteTargetId(null);
+    void deleteDownload(task.id);
   }
 
   function handleCancelCheck() {
@@ -136,7 +140,12 @@ export default function DownloadList() {
       await delay(500);
       if (!cancelCheckRef.current) {
         setCheckingAll(false);
-        addToast(t("downloads.checkUpdatesCompleted", { count }), "success");
+        addToast(
+          count > 0
+            ? t("downloads.checkUpdatesCompleted", { count })
+            : t("downloads.checkUpdatesNone"),
+          "success",
+        );
       }
     }
   }
@@ -169,6 +178,7 @@ export default function DownloadList() {
           [
             "all",
             "downloading",
+            "injecting",
             "pending",
             "paused",
             "completed",
@@ -282,6 +292,16 @@ export default function DownloadList() {
           </div>
         </div>
       </Modal>
+
+      <ConfirmModal
+        open={deleteTarget !== null}
+        title={t("downloads.package.delete")}
+        message={t("downloads.deleteConfirm")}
+        confirmText={t("accounts.detail.confirmDelete")}
+        danger
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteTargetId(null)}
+      />
     </PageContainer>
   );
 }

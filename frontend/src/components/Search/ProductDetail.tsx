@@ -128,8 +128,8 @@ export default function ProductDetail() {
               <span>{app.primaryGenreName}</span>
               <span>v{app.version}</span>
               <span>
-                {app.averageUserRating.toFixed(1)} ({app.userRatingCount}{" "}
-                {t("search.product.ratings")})
+                {(app.averageUserRating ?? 0).toFixed(1)} (
+                {app.userRatingCount ?? 0} {t("search.product.ratings")})
               </span>
             </div>
           </div>

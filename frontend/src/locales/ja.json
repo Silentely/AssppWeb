@@ -151,6 +151,7 @@
     "checkingUpdates": "確認中...",
     "checkUpdatesStarted": "バックグラウンドでアップデートを確認しています...",
     "checkUpdatesCompleted": "アップデートの確認が完了しました。{{count}} 個のパッケージを更新します。",
+    "checkUpdatesNone": "新しいバージョンは見つかりませんでした。",
     "checkUpdatesDesc": "レート制限を防ぐため、アプリを1つずつ確認しています。これには数分かかる場合があります。",
     "status": {
       "all": "すべて",
@@ -197,6 +198,7 @@
       "share": "共有",
       "copied": "リンクをクリップボードにコピーしました",
       "scan": "スキャンしてインストール",
+      "copyLink": "リンクをコピー",
       "downloadIpa": "IPA をダウンロード",
       "pause": "一時停止",
       "resume": "再開",
@@ -247,6 +249,8 @@
       "passwordConfirm": "パスワードを確認",
       "passwordMismatch": "パスワードが一致しません。",
       "incorrectPassword": "パスワードが間違っているか、データが破損しています。",
+      "invalidFormat": "選択したファイルは有効なアカウントバックアップではありません。",
+      "noValidAccounts": "バックアップに有効なアカウントがありません。",
       "exportSuccess": "アカウントのエクスポートに成功しました。",
       "importSuccess": "アカウントのインポートに成功しました。",
       "cancel": "キャンセル",
@@ -450,6 +454,7 @@
       "downloadLimit": "サイズ制限超過"
     },
     "msg": "{{appName}}{{version}}\n{{userName}} / {{appleId}} - {{country}}",
+    "msgDeleted": "{{appName}}{{version}}",
     "msgShare": "{{appName}}{{version}}\n{{userName}} / {{appleId}} - {{country}}\n\nAirDropを使用して友達と共有できます。",
     "msgFailed": "{{appName}}{{version}}\n{{userName}} / {{appleId}} - {{country}}\n\nエラー: {{error}}",
     "downloadLimit": {

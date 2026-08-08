@@ -151,6 +151,7 @@
     "checkingUpdates": "확인 중...",
     "checkUpdatesStarted": "백그라운드에서 업데이트를 확인 중입니다...",
     "checkUpdatesCompleted": "업데이트 확인 완료. {{count}}개의 패키지를 업데이트합니다.",
+    "checkUpdatesNone": "새 버전이 없습니다.",
     "checkUpdatesDesc": "속도 제한을 방지하기 위해 앱을 하나씩 확인하고 있습니다. 몇 분 정도 걸릴 수 있습니다.",
     "status": {
       "all": "전체",
@@ -197,6 +198,7 @@
       "share": "공유",
       "copied": "링크가 클립보드에 복사되었습니다",
       "scan": "스캔하여 설치",
+      "copyLink": "링크 복사",
       "downloadIpa": "IPA 다운로드",
       "pause": "일시 정지",
       "resume": "재개",
@@ -247,6 +249,8 @@
       "passwordConfirm": "비밀번호 확인",
       "passwordMismatch": "비밀번호가 일치하지 않습니다.",
       "incorrectPassword": "비밀번호가 틀렸거나 데이터가 손상되었습니다.",
+      "invalidFormat": "선택한 파일은 유효한 계정 백업이 아닙니다.",
+      "noValidAccounts": "백업에 유효한 계정이 없습니다.",
       "exportSuccess": "계정 내보내기 성공.",
       "importSuccess": "계정 가져오기 성공.",
       "cancel": "취소",
@@ -450,6 +454,7 @@
       "downloadLimit": "크기 제한 초과"
     },
     "msg": "{{appName}}{{version}}\n{{userName}} / {{appleId}} - {{country}}",
+    "msgDeleted": "{{appName}}{{version}}",
     "msgShare": "{{appName}}{{version}}\n{{userName}} / {{appleId}} - {{country}}\n\nAirDrop을 사용하여 친구와 공유할 수 있습니다.",
     "msgFailed": "{{appName}}{{version}}\n{{userName}} / {{appleId}} - {{country}}\n\n오류: {{error}}",
     "downloadLimit": {

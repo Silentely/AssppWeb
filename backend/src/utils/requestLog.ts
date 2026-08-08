@@ -57,6 +57,15 @@ export function logError(
   write("error", scope, requestId, message, meta);
 }
 
+// 系统级日志：无请求上下文时使用固定 scope 与 requestId，
+// 保持与请求日志一致的结构化格式，便于统一收集与过滤
+export function logSystem(
+  message: string,
+  meta?: Record<string, unknown>,
+): void {
+  write("info", "System", "system", message, meta);
+}
+
 // 账号哈希应视为敏感标识：过短的值直接整体掩码，正常值保留首尾便于关联日志
 export function maskAccountHash(value: string): string {
   if (!value) {

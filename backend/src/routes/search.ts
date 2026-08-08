@@ -58,8 +58,10 @@ function mapLegacySoftware(item: Record<string, any>) {
     artistName: item.artistName,
     sellerName: item.sellerName,
     description: item.description,
-    averageUserRating: item.averageUserRating,
-    userRatingCount: item.userRatingCount,
+    // iTunes 部分无评分的应用会缺失这两个字段，统一兜底为 0，
+    // 避免前端对 undefined 调用 toFixed 导致整页渲染崩溃
+    averageUserRating: toNumber(item.averageUserRating, 0),
+    userRatingCount: toNumber(item.userRatingCount, 0),
     artworkUrl: item.artworkUrl512,
     screenshotUrls: item.screenshotUrls ?? [],
     minimumOsVersion: item.minimumOsVersion,

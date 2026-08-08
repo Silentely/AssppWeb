@@ -72,6 +72,7 @@ export default function SearchPage() {
             value={term}
             onChange={(e) => setSearchParam({ term: e.target.value })}
             placeholder={t("search.placeholder")}
+            aria-label={t("search.placeholder")}
             className="flex-1 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-base text-gray-900 dark:text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
           />
           <button
@@ -137,7 +138,8 @@ export default function SearchPage() {
                   <span>{app.formattedPrice ?? t("search.free")}</span>
                   <span>{app.primaryGenreName}</span>
                   <span>
-                    {app.averageUserRating.toFixed(1)} ({app.userRatingCount})
+                    {(app.averageUserRating ?? 0).toFixed(1)} (
+                    {app.userRatingCount ?? 0})
                   </span>
                 </div>
               </div>

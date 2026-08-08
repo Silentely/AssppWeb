@@ -8,6 +8,7 @@ import { requestTrace } from "./middleware/requestTrace.js";
 import { accessAuth } from "./middleware/accessAuth.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { setupWsProxy } from "./services/wsProxy.js";
+import { logSystem } from "./utils/requestLog.js";
 import authRoutes from "./routes/auth.js";
 import searchRoutes from "./routes/search.js";
 import downloadRoutes from "./routes/downloads.js";
@@ -74,8 +75,10 @@ setupWsProxy(server);
 fs.mkdirSync(config.dataDir, { recursive: true });
 
 server.listen(config.port, () => {
-  console.log(`Server listening on port ${config.port}`);
-  console.log(`Data directory: ${path.resolve(config.dataDir)}`);
+  logSystem("server listening", { port: config.port });
+  logSystem("data directory ready", {
+    dataDir: path.resolve(config.dataDir),
+  });
 });
 
 export { app, server };

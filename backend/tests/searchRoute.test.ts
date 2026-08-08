@@ -166,6 +166,42 @@ describe("Search Route", () => {
     expect(requestUrl).toContain("bundleId=com.tencent.xin");
   });
 
+  it("GET /api/lookup should default missing rating fields to 0", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      jsonResponse({
+        resultCount: 1,
+        results: [
+          {
+            trackId: 414478124,
+            bundleId: "com.tencent.xin",
+            trackName: "WeChat",
+            version: "8.0.71",
+            price: 0,
+            artistName: "WeChat",
+            sellerName: "Tencent",
+            description: "Mock",
+            // 模拟 iTunes 对无评分应用缺失 rating 字段的情况
+            artworkUrl512: "https://example.com/wechat-512.jpg",
+            screenshotUrls: [],
+            minimumOsVersion: "15.0",
+            currentVersionReleaseDate: "2026-04-15T11:05:40Z",
+            primaryGenreName: "Social Networking",
+          },
+        ],
+      }),
+    );
+
+    const app = await createApp();
+    const res = await request(app).get(
+      "/api/lookup?bundleId=com.tencent.xin&country=cn",
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.body.averageUserRating).toBe(0);
+    expect(res.body.userRatingCount).toBe(0);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
   it("GET /api/search should fallback to legacy iTunes API without SERPAPI_KEY", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       jsonResponse({

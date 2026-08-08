@@ -151,6 +151,7 @@
     "checkingUpdates": "Checking...",
     "checkUpdatesStarted": "Checking for updates in background...",
     "checkUpdatesCompleted": "Update check complete. Found and updating {{count}} packages.",
+    "checkUpdatesNone": "No updates found.",
     "checkUpdatesDesc": "To prevent rate limits, we're checking apps one by one. This may take a few minutes.",
     "status": {
       "all": "All",
@@ -197,6 +198,7 @@
       "share": "Share",
       "copied": "Link copied to clipboard",
       "scan": "Scan to install",
+      "copyLink": "Copy Link",
       "downloadIpa": "Download IPA",
       "pause": "Pause",
       "resume": "Resume",
@@ -247,6 +249,8 @@
       "passwordConfirm": "Confirm Password",
       "passwordMismatch": "Passwords do not match.",
       "incorrectPassword": "Incorrect password or corrupted data.",
+      "invalidFormat": "The selected file is not a valid accounts backup.",
+      "noValidAccounts": "The backup contains no valid accounts.",
       "exportSuccess": "Accounts exported successfully.",
       "importSuccess": "Accounts imported successfully.",
       "cancel": "Cancel",
@@ -450,6 +454,7 @@
       "downloadLimit": "Size Limit Exceeded"
     },
     "msg": "{{appName}}{{version}}\n{{userName}} / {{appleId}} - {{country}}",
+    "msgDeleted": "{{appName}}{{version}}",
     "msgShare": "{{appName}}{{version}}\n{{userName}} / {{appleId}} - {{country}}\n\nYou can use AirDrop to share it with your friends.",
     "msgFailed": "{{appName}}{{version}}\n{{userName}} / {{appleId}} - {{country}}\n\nError: {{error}}",
     "downloadLimit": {

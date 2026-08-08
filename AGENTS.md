@@ -145,7 +145,8 @@ The backend proxies the bag endpoint via `GET /api/bag?guid=<deviceId>` using No
 ### Frontend Shared Components (`components/common/`)
 
 - **Alert** — `<Alert type="error|success|warning">` for status messages (replaces inline alert divs)
-- **Modal** — `<Modal open={bool} onClose={fn} title={string}>` for dialog overlays
+- **Modal** — `<Modal open={bool} onClose={fn} title={string}>` for dialog overlays (focus trap, ESC close, scroll lock)
+- **ConfirmModal** — `<ConfirmModal open title message confirmText danger onConfirm onCancel>` styled confirm dialog replacing native `confirm()` (delete/clear-data actions)
 - **Spinner** — inline SVG loading spinner for buttons
 - **CountrySelect** — optgroup-based country dropdown with "Available Regions" + "All Regions"
 - **AppIcon** — 3 sizes (40/56/80px), rounded corners, letter fallback

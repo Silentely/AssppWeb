@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import AppIcon from "../common/AppIcon";
@@ -12,7 +13,8 @@ interface DownloadItemProps {
   onDelete: (id: string) => void;
 }
 
-export default function DownloadItem({
+// 轮询每 2s 刷新任务列表，memo 让非活跃任务在父级因弹窗等状态重渲染时跳过
+const DownloadItem = memo(function DownloadItem({
   task,
   onPause,
   onResume,
@@ -103,4 +105,6 @@ export default function DownloadItem({
       </div>
     </div>
   );
-}
+});
+
+export default DownloadItem;

@@ -151,6 +151,7 @@
     "checkingUpdates": "檢查中...",
     "checkUpdatesStarted": "正在背景檢查更新...",
     "checkUpdatesCompleted": "更新檢查完成。發現並正在更新 {{count}} 個安裝包。",
+    "checkUpdatesNone": "沒有發現新版本。",
     "checkUpdatesDesc": "為防止觸發速率限制，我們正在逐一檢查應用程式。這可能需要幾分鐘時間。",
     "status": {
       "all": "全部",
@@ -197,6 +198,7 @@
       "share": "分享",
       "copied": "連結已複製到剪貼簿",
       "scan": "掃碼安裝",
+      "copyLink": "複製連結",
       "downloadIpa": "下載 IPA",
       "pause": "暫停",
       "resume": "繼續",
@@ -247,6 +249,8 @@
       "passwordConfirm": "確認密碼",
       "passwordMismatch": "兩次輸入的密碼不一致。",
       "incorrectPassword": "密碼錯誤或資料已損壞。",
+      "invalidFormat": "所選檔案不是有效的帳號備份。",
+      "noValidAccounts": "備份中不包含有效帳號。",
       "exportSuccess": "帳號匯出成功。",
       "importSuccess": "帳號匯入成功。",
       "cancel": "取消",
@@ -450,6 +454,7 @@
       "downloadLimit": "檔案大小超限"
     },
     "msg": "{{appName}}{{version}}\n{{userName}} / {{appleId}} - {{country}}",
+    "msgDeleted": "{{appName}}{{version}}",
     "msgShare": "{{appName}}{{version}}\n{{userName}} / {{appleId}} - {{country}}\n\n您可以使用 AirDrop 分享給您的朋友。",
     "msgFailed": "{{appName}}{{version}}\n{{userName}} / {{appleId}} - {{country}}\n\n錯誤: {{error}}",
     "downloadLimit": {

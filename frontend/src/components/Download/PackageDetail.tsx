@@ -7,6 +7,7 @@ import AppIcon from "../common/AppIcon";
 import Badge from "../common/Badge";
 import ProgressBar from "../common/ProgressBar";
 import Modal from "../common/Modal";
+import ConfirmModal from "../common/ConfirmModal";
 import { useDownloads } from "../../hooks/useDownloads";
 import { useAccounts } from "../../hooks/useAccounts";
 import { useDownloadAction } from "../../hooks/useDownloadAction";
@@ -34,6 +35,8 @@ export default function PackageDetail() {
 
   const [checkingUpdate, setCheckingUpdate] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
   const [latestApp, setLatestApp] = useState<Software | null>(null);
   const [availableVersions, setAvailableVersions] = useState<string[]>([]);
   const [selectedVersion, setSelectedVersion] = useState<string>("");
@@ -75,15 +78,25 @@ export default function PackageDetail() {
     );
   }
 
-  async function handleDelete() {
-    if (!confirm(t("downloads.package.deleteConfirm"))) return;
+  function handleDelete() {
+    setShowDeleteModal(true);
+  }
+
+  async function confirmDelete() {
     await deleteDownload(task!.id);
-    toastAction("toast.title.deleteSuccess", "success");
+    setShowDeleteModal(false);
+    addToast(
+      t("toast.msgDeleted", {
+        appName,
+        version: ` v${currentTask.software.version}`,
+      }),
+      "success",
+      t("toast.title.deleteSuccess"),
+    );
     navigate("/downloads");
   }
 
-  async function handleShare(e: React.MouseEvent) {
-    e.preventDefault();
+  async function copyInstallLink() {
     if (!installInfo) return;
 
     const urlToShare = installInfo.installUrl;
@@ -130,22 +143,17 @@ export default function PackageDetail() {
       "success",
       t("toast.title.shareAcquired"),
     );
+  }
 
-    if (navigator.share) {
-      try {
-        await navigator.share({ text: urlToShare });
-        console.info(`${LOG_PREFIX} native share completed`, {
-          taskId: currentTask.id,
-        });
-      } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError")
-          return;
-        console.warn(`${LOG_PREFIX} native share failed`, {
-          taskId: currentTask.id,
-          message: error instanceof Error ? error.message : String(error),
-        });
-      }
-    }
+  function handleNativeShare() {
+    if (!installInfo || !navigator.share) return;
+    void navigator.share({ text: installInfo.installUrl }).catch((error) => {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      console.warn(`${LOG_PREFIX} native share failed`, {
+        taskId: currentTask.id,
+        message: error instanceof Error ? error.message : String(error),
+      });
+    });
   }
 
   async function handleCheckUpdate() {
@@ -366,26 +374,13 @@ export default function PackageDetail() {
                       {t("downloads.package.install")}
                     </a>
 
-                    <div className="relative group flex items-center">
+                    <div className="flex items-center">
                       <button
-                        onClick={handleShare}
+                        onClick={() => setShowShareModal(true)}
                         className="px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 transition-colors cursor-pointer"
                       >
                         {t("downloads.package.share")}
                       </button>
-                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 invisible opacity-0 group-hover:visible group-hover:opacity-100 transition-all duration-200 z-50 pointer-events-none">
-                        <div className="bg-white p-2 rounded-lg shadow-xl border border-gray-200 flex flex-col items-center">
-                          <QRCodeSVG
-                            value={installInfo.installUrl}
-                            size={128}
-                            className="mb-1"
-                          />
-                          <span className="text-xs text-gray-500 mt-1 whitespace-nowrap">
-                            {t("downloads.package.scan")}
-                          </span>
-                          <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-white border-b border-r border-gray-200 transform rotate-45"></div>
-                        </div>
-                      </div>
                     </div>
                   </>
                 )}
@@ -470,6 +465,52 @@ export default function PackageDetail() {
           </div>
         </div>
       </Modal>
+
+      <ConfirmModal
+        open={showDeleteModal}
+        title={t("downloads.package.delete")}
+        message={t("downloads.package.deleteConfirm")}
+        confirmText={t("accounts.detail.confirmDelete")}
+        danger
+        onConfirm={confirmDelete}
+        onCancel={() => setShowDeleteModal(false)}
+      />
+
+      {installInfo && (
+        <Modal
+          open={showShareModal}
+          onClose={() => setShowShareModal(false)}
+          title={t("downloads.package.share")}
+        >
+          <div className="flex flex-col items-center gap-4">
+            <div className="bg-white p-3 rounded-xl border border-gray-200 dark:border-gray-700">
+              <QRCodeSVG value={installInfo.installUrl} size={192} />
+            </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
+              {t("downloads.package.scan")}
+            </p>
+            <p className="w-full text-xs font-mono text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md p-2 break-all">
+              {installInfo.installUrl}
+            </p>
+            <div className="flex gap-3 w-full">
+              <button
+                onClick={copyInstallLink}
+                className="flex-1 px-4 py-2 text-sm font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition-colors"
+              >
+                {t("downloads.package.copyLink")}
+              </button>
+              {typeof navigator.share === "function" && (
+                <button
+                  onClick={handleNativeShare}
+                  className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                >
+                  {t("downloads.package.share")}
+                </button>
+              )}
+            </div>
+          </div>
+        </Modal>
+      )}
     </PageContainer>
   );
 }

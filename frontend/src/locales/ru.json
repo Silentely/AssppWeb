@@ -151,6 +151,7 @@
     "checkingUpdates": "Проверка...",
     "checkUpdatesStarted": "Проверка обновлений в фоновом режиме...",
     "checkUpdatesCompleted": "Проверка обновлений завершена. Найдено и обновляется пакетов: {{count}}.",
+    "checkUpdatesNone": "Обновления не найдены.",
     "checkUpdatesDesc": "Чтобы избежать ограничений скорости, мы проверяем приложения по одному. Это может занять несколько минут.",
     "status": {
       "all": "Все",
@@ -197,6 +198,7 @@
       "share": "Поделиться",
       "copied": "Ссылка скопирована в буфер обмена",
       "scan": "Отсканируйте для установки",
+      "copyLink": "Копировать ссылку",
       "downloadIpa": "Скачать IPA",
       "pause": "Пауза",
       "resume": "Продолжить",
@@ -247,6 +249,8 @@
       "passwordConfirm": "Подтвердите пароль",
       "passwordMismatch": "Пароли не совпадают.",
       "incorrectPassword": "Неверный пароль или данные повреждены.",
+      "invalidFormat": "Выбранный файл не является действующей резервной копией аккаунтов.",
+      "noValidAccounts": "Резервная копия не содержит действующих аккаунтов.",
       "exportSuccess": "Аккаунты успешно экспортированы.",
       "importSuccess": "Аккаунты успешно импортированы.",
       "cancel": "Отмена",
@@ -450,6 +454,7 @@
       "downloadLimit": "Превышен лимит размера"
     },
     "msg": "{{appName}}{{version}}\n{{userName}} / {{appleId}} - {{country}}",
+    "msgDeleted": "{{appName}}{{version}}",
     "msgShare": "{{appName}}{{version}}\n{{userName}} / {{appleId}} - {{country}}\n\nВы можете использовать AirDrop, чтобы поделиться ею с друзьями.",
     "msgFailed": "{{appName}}{{version}}\n{{userName}} / {{appleId}} - {{country}}\n\nОшибка: {{error}}",
     "downloadLimit": {

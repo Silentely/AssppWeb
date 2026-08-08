@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import PageContainer from "../Layout/PageContainer";
 import Modal from "../common/Modal";
+import ConfirmModal from "../common/ConfirmModal";
 import { useAccountsStore } from "../../store/accounts";
 import { useSettingsStore, type EntityType } from "../../store/settings";
 import { useToastStore } from "../../store/toast";
@@ -55,6 +56,7 @@ export default function SettingsPage() {
   const [conflictModalOpen, setConflictModalOpen] = useState(false);
   const [pendingAccounts, setPendingAccounts] = useState<Account[]>([]);
   const [conflictStats, setConflictStats] = useState({ conflict: 0, new: 0 });
+  const [showClearModal, setShowClearModal] = useState(false);
 
   useEffect(() => {
     apiGet<ServerInfo>("/api/settings")
@@ -107,7 +109,9 @@ export default function SettingsPage() {
   const handleImport = async () => {
     try {
       const parsed = await decryptData(importFileData, importPassword);
-      if (!Array.isArray(parsed)) throw new Error("Invalid format");
+      if (!Array.isArray(parsed)) {
+        throw new Error("invalid-format");
+      }
       const valid = parsed.filter(
         (item: any) =>
           item &&
@@ -115,7 +119,9 @@ export default function SettingsPage() {
           typeof item.email === "string" &&
           item.email.length > 0,
       ) as Account[];
-      if (valid.length === 0) throw new Error("No valid accounts found");
+      if (valid.length === 0) {
+        throw new Error("no-valid-accounts");
+      }
 
       if (accounts.length === 0) {
         for (const acc of valid) {
@@ -147,8 +153,16 @@ export default function SettingsPage() {
           setImportPassword("");
         }
       }
-    } catch {
-      addToast(t("settings.data.incorrectPassword"), "error");
+    } catch (error) {
+      // 区分「文件格式错误 / 无有效账号 / 密码错误」，避免一律提示密码错误
+      const code = error instanceof Error ? error.message : "";
+      if (code === "invalid-format") {
+        addToast(t("settings.data.invalidFormat"), "error");
+      } else if (code === "no-valid-accounts") {
+        addToast(t("settings.data.noValidAccounts"), "error");
+      } else {
+        addToast(t("settings.data.incorrectPassword"), "error");
+      }
     }
   };
 
@@ -164,6 +178,16 @@ export default function SettingsPage() {
     setConflictModalOpen(false);
     setPendingAccounts([]);
     addToast(t("settings.data.importSuccess"), "success");
+  };
+
+  const handleClearData = () => {
+    setShowClearModal(false);
+    localStorage.clear();
+    indexedDB.deleteDatabase("asspp-accounts");
+    addToast(t("settings.data.cleared"), "success");
+    setTimeout(() => {
+      window.location.href = "/";
+    }, 1000);
   };
 
   return (
@@ -394,15 +418,7 @@ export default function SettingsPage() {
           </div>
 
           <button
-            onClick={() => {
-              if (!confirm(t("settings.data.confirm"))) return;
-              localStorage.clear();
-              indexedDB.deleteDatabase("asspp-accounts");
-              addToast(t("settings.data.cleared"), "success");
-              setTimeout(() => {
-                window.location.href = "/";
-              }, 1000);
-            }}
+            onClick={() => setShowClearModal(true)}
             className="px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400 border border-red-300 dark:border-red-800 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
           >
             {t("settings.data.button")}
@@ -557,6 +573,16 @@ export default function SettingsPage() {
           </button>
         </div>
       </Modal>
+
+      <ConfirmModal
+        open={showClearModal}
+        title={t("settings.data.button")}
+        message={t("settings.data.confirm")}
+        confirmText={t("settings.data.confirmBtn")}
+        danger
+        onConfirm={handleClearData}
+        onCancel={() => setShowClearModal(false)}
+      />
     </PageContainer>
   );
 }
