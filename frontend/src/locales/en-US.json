@@ -434,6 +434,7 @@
     "auth": {
       "requiresVerification": "Apple could not complete sign-in yet. The account may need a 2FA verification code, or the Apple ID/password may be incorrect. If the password is correct and no code was prompted, try logging in at https://account.apple.com to trigger the alert, then enter the code in the 2FA Code field.",
       "rateLimited": "Apple authentication is temporarily rate limited. Stop retrying and wait before trying again.",
+      "edgeRejected": "Apple is rejecting authentication requests from this server (HTTP {{status}}). This is often caused by Apple rate-limiting or blocking the server's IP address. Wait a few minutes before trying again, or run the server from a residential network.",
       "invalidCredentials": "Apple ID or password is incorrect",
       "redirectLocation": "Failed to retrieve redirect location",
       "emptyBody": "Authentication failed: server returned HTTP {{status}} with empty body",

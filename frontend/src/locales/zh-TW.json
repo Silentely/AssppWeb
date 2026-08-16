@@ -434,6 +434,7 @@
     "auth": {
       "requiresVerification": "Apple 暫時無法完成登入，可能需要雙重認證代碼，也可能是 Apple ID 或密碼不正確。如果確認密碼正確但沒有彈出驗證碼，請嘗試在 https://account.apple.com 登入以觸發提示，然後在雙重認證代碼欄位中填寫該代碼。",
       "rateLimited": "Apple 登入介面暫时限流。請停止重複嘗試，等待一段時間後再登入。",
+      "edgeRejected": "Apple 拒絕了來自此伺服器的認證請求（HTTP {{status}}）。這通常是因為 Apple 對該伺服器 IP 進行了限流或封鎖。請等待幾分鐘後再試，或將服務執行在家用網路環境。",
       "invalidCredentials": "Apple ID 或密碼不正確",
       "redirectLocation": "無法取得重新導向位址",
       "emptyBody": "認證失敗：伺服器傳回 HTTP {{status}} 且回應主體為空",

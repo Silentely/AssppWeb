@@ -5,11 +5,35 @@ import { extractAndMergeCookies } from "./cookies";
 import { fetchBag, defaultAuthURL } from "./bag";
 import { authURLFromText, normalizeAuthURL } from "./authEndpoint";
 import i18n from "../i18n";
+import { log } from "../utils/log";
 
 const failureTypeInvalidCredentials = "-5000";
 const customerMessageBadLogin = "MZFinance.BadLogin.Configurator_message";
 const customerMessageAccountDisabled = "Your account is disabled.";
 const maxLoginAttempts = 4;
+const retryBackoffBaseMs = 5_000;
+const retryBackoffMaxMs = 15_000;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Apple 边缘层会间歇性拒绝认证请求（403/301/204 或 HTML 错误页等非 plist 响应），
+// 这类响应不是凭据错误，属于可重试的瞬态拒绝。
+function isTransientEdgeRejection(status: number, body: string): boolean {
+  if (status === 200 || status === 429) return false;
+  if (status >= 300 && status < 400) return true;
+  if (!body.trim()) return true;
+  const trimmed = body.trim();
+  if (
+    trimmed.startsWith("<plist") ||
+    trimmed.startsWith("<?xml") ||
+    trimmed.startsWith("<dict")
+  ) {
+    return false;
+  }
+  return true;
+}
 
 export class AuthenticationError extends Error {
   constructor(
@@ -46,6 +70,35 @@ export async function authenticate(
   requestPath = `${authEndpoint.pathname}${authEndpoint.search}`;
 
   let pod: string | undefined;
+  let edgeRejected = false;
+  let lastEdgeStatus: number | undefined;
+
+  // 遇到 Apple 边缘的瞬态拒绝时：记录、退避等待、重新拉取 bag 后重试。
+  const retryAfterEdgeRejection = async (
+    status: number,
+    attempt: number,
+  ) => {
+    edgeRejected = true;
+    lastEdgeStatus = status;
+    if (attempt >= maxLoginAttempts) return;
+    const delayMs = Math.min(
+      retryBackoffMaxMs,
+      retryBackoffBaseMs * attempt,
+    );
+    log.warn("Authenticate", "Apple edge rejected request, retrying", {
+      status,
+      attempt,
+      maxAttempts: maxLoginAttempts,
+      delayMs,
+    });
+    await sleep(delayMs);
+    const retryBag = await fetchBag(deviceId);
+    const retryEndpoint = new URL(normalizeAuthURL(retryBag.authURL));
+    retryEndpoint.searchParams.set("guid", deviceId);
+    currentAuthBaseURL = normalizeAuthURL(retryBag.authURL);
+    requestHost = retryEndpoint.hostname;
+    requestPath = `${retryEndpoint.pathname}${retryEndpoint.search}`;
+  };
 
   for (
     let currentAttempt = 1;
@@ -134,9 +187,13 @@ export async function authenticate(
           );
         }
 
-        throw new AuthenticationError(
-          i18n.t("errors.auth.emptyBody", { status: response.status }),
-        );
+        if (!isTransientEdgeRejection(response.status, response.body)) {
+          throw new AuthenticationError(
+            i18n.t("errors.auth.emptyBody", { status: response.status }),
+          );
+        }
+        await retryAfterEdgeRejection(response.status, currentAttempt);
+        continue;
       }
 
       const trimmedBody = response.body.trim();
@@ -161,9 +218,13 @@ export async function authenticate(
           throw new AuthenticationError(message);
         } catch (error) {
           if (error instanceof AuthenticationError) throw error;
-          throw new AuthenticationError(
-            `Unexpected Apple auth response: HTTP ${response.status}, content-type ${response.headers["content-type"] || "unknown"}, body starts with ${previewResponseBody(response.body)}`,
-          );
+          if (!isTransientEdgeRejection(response.status, response.body)) {
+            throw new AuthenticationError(
+              `Unexpected Apple auth response: HTTP ${response.status}, content-type ${response.headers["content-type"] || "unknown"}, body starts with ${previewResponseBody(response.body)}`,
+            );
+          }
+          await retryAfterEdgeRejection(response.status, currentAttempt);
+          continue;
         }
       }
 
@@ -181,11 +242,15 @@ export async function authenticate(
           continue;
         }
 
-        throw new AuthenticationError(
-          `Unexpected Apple auth response: HTTP ${response.status}, content-type ${response.headers["content-type"] || "unknown"}, body starts with ${previewResponseBody(response.body)}; ${
-            error instanceof Error ? error.message : String(error)
-          }`,
-        );
+        if (!isTransientEdgeRejection(response.status, response.body)) {
+          throw new AuthenticationError(
+            `Unexpected Apple auth response: HTTP ${response.status}, content-type ${response.headers["content-type"] || "unknown"}, body starts with ${previewResponseBody(response.body)}; ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          );
+        }
+        await retryAfterEdgeRejection(response.status, currentAttempt);
+        continue;
       }
 
       if (dict.failureType === failureTypeInvalidCredentials) {
@@ -278,6 +343,15 @@ export async function authenticate(
       if (e instanceof AuthenticationError) throw e;
       lastError = e instanceof Error ? e : new Error(String(e));
     }
+  }
+
+  if (edgeRejected) {
+    throw new AuthenticationError(
+      i18n.t("errors.auth.edgeRejected", {
+        status: lastEdgeStatus ?? "unknown",
+        defaultValue: `Apple is rejecting authentication requests from this server (HTTP ${lastEdgeStatus ?? "unknown"}). This is often caused by Apple rate-limiting or blocking the server's IP address. Wait a few minutes before trying again, or run the server from a residential network.`,
+      }),
+    );
   }
 
   throw (
